@@ -1,27 +1,77 @@
-# staTThus CMS Stack
+# staTThus CMS Stack — Phase 2
 #
-# Phase 1 (jetzt): nur Caddy als TLS-terminierender Reverse Proxy.
-#   Validiert: Server erreichbar, DNS auflöst, Let's-Encrypt-Zertifikate
-#   ziehen, Stack startet beim Boot.
+# Drei Container:
+#   caddy  — TLS-Terminator + Reverse Proxy auf tina:3000
+#   tina   — Next.js + TinaCMS (Admin UI + GraphQL-API)
+#   mongo  — Datalayer-Index für Tina (Source of Truth bleibt Git)
 #
-# Phase 2 (folgt): tina (Next.js Backend + Admin) + mongo (User-DB).
-#   Caddy proxyt dann auf den Tina-Container.
+# Persistente Daten gehen unter ${CMS_DATA_DIR}, das auf der Hetzner-VM
+# auf /opt/cms-data (Hetzner-Volume) zeigt, lokal auf ./data.
 
 services:
   caddy:
     image: caddy:2-alpine
     container_name: statthus-caddy
     restart: unless-stopped
+    depends_on:
+      - tina
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - ${CMS_DATA_DIR:-./data}/caddy/data:/data
+      - ${CMS_DATA_DIR:-./data}/caddy/config:/config
     environment:
       - CMS_DOMAIN=${CMS_DOMAIN:-autor.statthus.de}
+    networks:
+      - statthus
 
-volumes:
-  caddy_data:      # ACME-Zertifikate, OCSP-Staples — überleben Container-Restart
-  caddy_config:    # Caddy-Runtime-Konfig
+  tina:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: statthus-cms-tina:local
+    container_name: statthus-tina
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - TINA_PUBLIC_IS_LOCAL=false
+      - GITHUB_OWNER=${GITHUB_OWNER:-statthus-husum}
+      - GITHUB_REPO=${GITHUB_REPO:-statthus-website}
+      - GITHUB_BRANCH=${GITHUB_BRANCH:-main}
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=https://${CMS_DOMAIN:-autor.statthus.de}
+      - MONGODB_URI=mongodb://${MONGO_USER:-tina}:${MONGO_PASS}@mongo:27017/${MONGODB_DBNAME:-tinacms}?authSource=admin
+      - MONGODB_DBNAME=${MONGODB_DBNAME:-tinacms}
+      - MONGODB_COLLECTION=${MONGODB_COLLECTION:-tinacms}
+    networks:
+      - statthus
+
+  mongo:
+    image: mongo:7
+    container_name: statthus-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-tina}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASS}
+    volumes:
+      - ${CMS_DATA_DIR:-./data}/mongo:/data/db
+    networks:
+      - statthus
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  statthus:
+    name: statthus

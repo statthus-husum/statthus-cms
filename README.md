@@ -1,8 +1,8 @@
 # statthus-cms
 
-Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit Email/Passwort an, Inhaltsänderungen werden direkt ins [statthus-website](https://github.com/statthus-husum/statthus-website)-Repo committet.
+Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit Email/Passwort an, Inhalts-Änderungen werden direkt ins [statthus-website](https://github.com/statthus-husum/statthus-website)-Repo committet.
 
-## Architektur (Zielzustand)
+## Architektur
 
 ```
         Bewohner:in
@@ -11,9 +11,9 @@ Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit E
    autor.statthus.de
             │
        ┌────┴────┐
-       │  Caddy  │  Auto-TLS via Let's Encrypt
+       │  Caddy  │  Auto-TLS via Let's Encrypt, Reverse Proxy
        └────┬────┘
-            │
+            │ tina:3000
    ┌────────┴────────┐
    │  Tina Backend   │  Next.js, Auth.js (Email/PW), GraphQL-API
    │   + Admin UI    │
@@ -21,7 +21,7 @@ Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit E
      │            │
      │            ▼
      │      ┌──────────┐
-     │      │ MongoDB  │  User-Accounts
+     │      │ MongoDB  │  Datalayer-Index (Cache; SoT bleibt Git)
      │      └──────────┘
      │
      ▼ commits via GitHub API
@@ -31,50 +31,87 @@ Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit E
    statthus-husum.github.io/statthus-website
 ```
 
-## Status
+## Erst-Deployment (manuell, einmalig)
 
-**Phase 1 (jetzt):** Nur Caddy läuft, validiert TLS + DNS + Stack-Lifecycle. Antwort auf `https://autor.statthus.de` ist ein Platzhalter-Text.
+Server existiert bereits via [statthus-infra](https://github.com/statthus-husum/statthus-infra). Cloud-init hat das CMS-Repo nach `/opt/cms` geklont und Caddy mit Platzhalter gestartet (Phase 1).
 
-**Phase 2 (folgt):**
-- Tina Next.js Backend mit Auth.js (Credentials Provider, Email/PW)
-- MongoDB für User-Accounts
-- `tina/config.ts` mit Schema für Events, News, People, Themen-Intros
-- GitHub-PAT als `GITHUB_PERSONAL_ACCESS_TOKEN`-Env für Commit-Operationen
-- Erste Userin (du) anlegen via CLI-Skript
-
-## Lokale Entwicklung (Phase 1)
+Für Phase 2 (Tina + MongoDB) auf dem Server:
 
 ```bash
+ssh root@<server-ip>
+cd /opt/cms
+git pull               # holt diesen Stand
+
+# .env anlegen — auf der VM mit den richtigen Werten:
 cp .env.example .env
-$EDITOR .env   # CMS_DOMAIN auf z.B. cms.local setzen, dann ein Hosts-Eintrag
-docker compose up
+$EDITOR .env
 ```
 
-Lokal kein Let's Encrypt — Caddy fällt auf selbstsigniertes Zert zurück bei nicht-öffentlichen Domains.
+In der `.env` zwingend zu setzen:
+- `GITHUB_PERSONAL_ACCESS_TOKEN` — Fine-grained PAT mit `Contents: Read & Write` nur auf `statthus-website`
+- `NEXTAUTH_SECRET` — `openssl rand -base64 32`
+- `MONGO_PASS` — beliebiges starkes Passwort (wird beim ersten Mongo-Start gesetzt)
 
-## Deployment
+Dann Stack hochziehen:
 
-Wird von [statthus-infra](https://github.com/statthus-husum/statthus-infra) per OpenTofu+cloud-init betrieben:
-1. VM startet
-2. Cloud-init klont dieses Repo nach `/opt/cms`
-3. Schreibt `.env` mit produktivem `CMS_DOMAIN`
-4. Startet via systemd-Unit `statthus-cms.service` → `docker compose up -d`
+```bash
+docker compose up -d --build
+docker compose logs -f tina    # Build dauert beim ersten Mal ~3-5 min
+```
 
-Updates am Stack auf dem Server:
+Nach dem Build: `https://autor.statthus.de/admin/index.html` öffnen → Login mit:
+- Username: `admin`
+- Passwort: `statthus-init-2026`
+
+⚠️ Beim ersten Login wirst du zum Passwort-Wechsel aufgefordert. Tu das.
+
+## Schema / Collections
+
+Definiert in [`app/tina/config.tsx`](app/tina/config.tsx) und [`app/tina/collections/`](app/tina/collections/):
+
+| Collection | Hugo-Pfad | Inhalt |
+|---|---|---|
+| `event` | `content/german/event/` | Termine mit `event_date`/`event_end`/`event_location` |
+| `news` | `content/german/news/` | Nachrichten ohne Termin |
+| `person` | `content/german/people/` | Bewohner:innen-Steckbriefe |
+| `users` (intern) | `content/users/index.json` | Editor-Accounts |
+
+Themen-Intros (`content/german/themen/<term>/_index.md`) sind noch nicht in Tina erfasst — siehe `app/README.md` TODO.
+
+## Updates ausrollen
+
 ```bash
 ssh root@<server-ip>
 cd /opt/cms
 git pull
-docker compose pull
-docker compose up -d
+docker compose up -d --build tina   # nur Tina-Container neu bauen
 ```
+
+Bei Schema-Änderungen ggf. Mongo-Index neu bauen:
+```bash
+docker compose exec tina npx @tinacms/cli build --skip-cloud-checks
+docker compose restart tina
+```
+
+## Backup
+
+MongoDB enthält nur den Cache-Index — Source-of-Truth ist Git. Bei einem totalen Verlust:
+1. neue VM via `tofu apply` aufbauen
+2. `.env` neu setzen
+3. `docker compose up -d --build`
+4. Tina indexiert beim ersten Start aus dem GitHub-Repo neu (~30 s)
+
+Optional zusätzliche Backups: `mongodump` als nächtlicher Cron-Job, Output auf Hetzner Object Storage (S3-kompatibel).
+
+## Lokale Entwicklung
+
+Siehe [`app/README.md`](app/README.md). Kurz: `cd app && npm install && npm run dev` — startet Tina im Local-Mode (kein Auth, Filesystem statt MongoDB).
 
 ## Aufbau
 
-| Datei | Zweck |
+| Datei/Ordner | Zweck |
 |---|---|
-| `docker-compose.yml` | Stack-Definition |
+| `app/` | Next.js + TinaCMS-Anwendung (eigenes README) |
+| `docker-compose.yml` | Stack-Definition (Caddy + Tina + MongoDB) |
 | `Caddyfile` | Reverse-Proxy + Auto-TLS |
 | `.env.example` | dokumentierte Env-Variablen |
-| _Phase 2:_ `app/` | Tina Next.js Anwendung |
-| _Phase 2:_ `tina/config.ts` | Content-Schema |

@@ -1,0 +1,39 @@
+{
+  "name": "statthus-cms-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tina CMS Backend für staTThus — committet Inhalte ins statthus-website Hugo-Repo",
+  "scripts": {
+    "dev": "TINA_PUBLIC_IS_LOCAL=true tinacms dev -c \"next dev\"",
+    "dev:prod": "TINA_PUBLIC_IS_LOCAL=false tinacms dev -c \"next dev\"",
+    "build": "tinacms build --partial-reindex && next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.3",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^14.2.35",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19"
+  },
+  "dependencies": {
+    "@svgr/webpack": "^8.1.0",
+    "@tinacms/cli": "^1.12.6",
+    "@tinacms/datalayer": "^1.4.3",
+    "mongodb-level": "^1.0.0",
+    "next": "14.2.35",
+    "next-auth": "^4.24.13",
+    "react": "^18.3.1",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^18.3.1",
+    "tinacms": "^2.10.1",
+    "tinacms-authjs": "^5.0.9",
+    "tinacms-gitprovider-github": "^2.0.19",
+    "typescript": "^5.9.3"
+  }
+}

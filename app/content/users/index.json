@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "name": "staTThus Admin",
+      "email": "admin@statthus-husum.de",
+      "username": "admin",
+      "password": {
+        "value": "statthus-init-2026",
+        "passwordChangeRequired": true
+      }
+    }
+  ]
+}
