@@ -23,7 +23,7 @@ services:
       - ${CMS_DATA_DIR:-./data}/caddy/data:/data
       - ${CMS_DATA_DIR:-./data}/caddy/config:/config
     environment:
-      - CMS_DOMAIN=${CMS_DOMAIN:-autor.statthus.de}
+      - CMS_DOMAIN=${CMS_DOMAIN:-schreibe.statthus-husum.de}
     networks:
       - statthus
 
@@ -47,7 +47,7 @@ services:
       - GITHUB_BRANCH=${GITHUB_BRANCH:-main}
       - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=https://${CMS_DOMAIN:-autor.statthus.de}
+      - NEXTAUTH_URL=https://${CMS_DOMAIN:-schreibe.statthus-husum.de}
       - MONGODB_URI=mongodb://${MONGO_USER:-tina}:${MONGO_PASS}@mongo:27017/${MONGODB_DBNAME:-tinacms}?authSource=admin
       - MONGODB_DBNAME=${MONGODB_DBNAME:-tinacms}
       - MONGODB_COLLECTION=${MONGODB_COLLECTION:-tinacms}

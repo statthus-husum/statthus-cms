@@ -8,7 +8,7 @@ Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit E
         Bewohner:in
             │
             ▼
-   autor.statthus.de
+   schreibe.statthus-husum.de
             │
        ┌────┴────┐
        │  Caddy  │  Auto-TLS via Let's Encrypt, Reverse Proxy
@@ -28,7 +28,7 @@ Selbst-gehostetes Tina CMS für die staTThus-Website. Editoren melden sich mit E
    github.com/statthus-husum/statthus-website
             │
             ▼ GitHub Action
-   statthus-husum.github.io/statthus-website
+   statthus-husum.de  (über GitHub Pages mit Custom Domain)
 ```
 
 ## Erst-Deployment (manuell, einmalig)
@@ -66,7 +66,7 @@ Hugo-Inhalte in MongoDB landen (sonst sieht der Editor leere Listen):
 docker compose exec tina npx tinacms build
 ```
 
-Anschließend `https://autor.statthus.de/admin/index.html` öffnen → Login mit:
+Anschließend `https://schreibe.statthus-husum.de/admin/index.html` öffnen → Login mit:
 - Username: `admin`
 - Passwort: `statthus-init-2026`
 
