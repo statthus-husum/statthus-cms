@@ -1,0 +1,27 @@
+# staTThus CMS Stack
+#
+# Phase 1 (jetzt): nur Caddy als TLS-terminierender Reverse Proxy.
+#   Validiert: Server erreichbar, DNS auflöst, Let's-Encrypt-Zertifikate
+#   ziehen, Stack startet beim Boot.
+#
+# Phase 2 (folgt): tina (Next.js Backend + Admin) + mongo (User-DB).
+#   Caddy proxyt dann auf den Tina-Container.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: statthus-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - CMS_DOMAIN=${CMS_DOMAIN:-autor.statthus.de}
+
+volumes:
+  caddy_data:      # ACME-Zertifikate, OCSP-Staples — überleben Container-Restart
+  caddy_config:    # Caddy-Runtime-Konfig

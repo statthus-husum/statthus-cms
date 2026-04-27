@@ -1,0 +1,28 @@
+# Caddy holt automatisch ein Let's-Encrypt-Zertifikat für CMS_DOMAIN,
+# sobald die Domain auf diese IP zeigt und Port 80/443 erreichbar sind.
+
+{$CMS_DOMAIN} {
+    encode gzip zstd
+
+    header {
+        # Sicherheit
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Während Phase 1: Suchmaschinen ausschließen
+        X-Robots-Tag "noindex, nofollow"
+    }
+
+    # --- Phase 1: Platzhalter ---
+    respond "staTThus CMS — Setup läuft. Stand: Phase 1 (Infrastructure online)." 200
+
+    # --- Phase 2 (auskommentiert; aktivieren sobald Tina-Container läuft) ---
+    # reverse_proxy tina:3000
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
