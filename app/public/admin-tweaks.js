@@ -7,35 +7,33 @@
  * der Hinweis ist permanent ohne Handlungsmöglichkeit.
  */
 (function () {
+  // Tina nutzt verschiedene URL-Pfade für die Search-Doku, je nach Version.
+  // Wir matchen auf alle bekannten Varianten.
+  var SEARCH_LINK_SELECTORS = [
+    'a[href*="content-search"]',
+    'a[href*="search/overview"]',
+    'a[href*="search/configuration"]',
+  ].join(", ");
+
   function hideSearchBanner() {
     var found = false;
-    document
-      .querySelectorAll('a[href*="search/overview"], a[href*="search/configuration"]')
-      .forEach(function (link) {
-        var banner = link.closest("div, section, aside, p");
-        // Nach oben laufen, bis wir einen Container mit Geschwistern finden —
-        // das ist typischerweise der eigentliche Banner-Wrapper.
-        while (
-          banner &&
-          banner.parentElement &&
-          banner.parentElement.children.length === 1
-        ) {
-          banner = banner.parentElement;
-        }
-        if (banner) {
-          banner.style.display = "none";
-          found = true;
-        }
-      });
+    document.querySelectorAll(SEARCH_LINK_SELECTORS).forEach(function (link) {
+      // Direkter umschließender div ist hier der Banner.
+      var banner = link.closest("div");
+      if (banner) {
+        banner.style.display = "none";
+        found = true;
+      }
+    });
     return found;
   }
 
   // Initial-Versuch + Polling, bis das React-Bundle den Banner gerendert hat
-  // (max 15 s, dann aufgeben — sonst leeres Polling für immer).
+  // (max 30 s, dann aufgeben).
   var attempts = 0;
   var iv = setInterval(function () {
     attempts++;
-    if (hideSearchBanner() || attempts > 30) {
+    if (hideSearchBanner() || attempts > 60) {
       clearInterval(iv);
     }
   }, 500);
