@@ -86,18 +86,13 @@ Definiert in [`app/tina/config.tsx`](app/tina/config.tsx) und [`app/tina/collect
 
 ## Updates ausrollen
 
-```bash
-ssh root@<server-ip>
-cd /opt/cms
-git pull
-docker compose up -d --build tina   # nur Tina-Container neu bauen
-```
-
-Bei Schema-Änderungen ggf. Mongo-Index neu bauen:
-```bash
-docker compose exec tina npx @tinacms/cli build --skip-cloud-checks
-docker compose restart tina
-```
+| Was hat sich geändert? | Befehl |
+|---|---|
+| Nur Inhalt (über Tina-UI editiert) | nichts — Tina committet direkt |
+| Schema in `app/tina/` (Collection-Felder, neue Collection, …) | `cd /opt/cms && git pull && docker compose up -d --build tina` |
+| Manuelles Re-Indexing nötig | `docker compose exec tina npx tinacms build && docker compose restart tina` (**Restart ist Pflicht** — Next.js cached `public/` zum Start) |
+| Caddy-Config | `git pull && docker compose restart caddy` |
+| Komplett-Neustart | `docker compose down && docker compose up -d` |
 
 ## Backup
 
