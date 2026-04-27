@@ -1,7 +1,7 @@
 module.exports = {
-  // App muss in Docker laufen — standalone-Output reduziert Image-Größe.
-  output: "standalone",
-
+  // standalone-Output bewusst NICHT verwendet: wir brauchen das volle
+  // node_modules zur Laufzeit, damit `tinacms build` für die initiale
+  // MongoDB-Indexierung im Container ausgeführt werden kann.
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/i,

@@ -1,5 +1,5 @@
-# Multi-Stage Next.js Production Build
-# Voraussetzung: package.json hat "output": "standalone" in next.config.js
+# Multi-Stage Next.js Production Build (NICHT standalone — wir brauchen
+# node_modules zur Laufzeit für initiale MongoDB-Indexierung via tinacms-CLI)
 ARG NODE_VERSION=20
 
 # ---- deps ----
@@ -21,7 +21,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Tina-Schema generiert __generated__/ + admin-UI in public/admin/
+# tinacms build --skip-indexing: generiert Schema + admin-UI ohne MongoDB-Zugriff
+# (DB läuft erst zur Runtime). Initiales Indexieren passiert per
+# `docker compose exec tina npx tinacms build` nach dem ersten Start.
 RUN npm run build
 
 # ---- runner ----
@@ -29,17 +31,26 @@ FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN apk add --no-cache libc6-compat
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
-# standalone-Output enthält nur die nötigen node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Volle App + node_modules übernehmen — kein standalone-Trim
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/package-lock.json* ./
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./next.config.js
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/tina ./tina
+COPY --from=builder --chown=nextjs:nodejs /app/content ./content
+COPY --from=builder --chown=nextjs:nodejs /app/pages ./pages
+COPY --from=builder --chown=nextjs:nodejs /app/app ./app
 
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

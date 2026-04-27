@@ -59,7 +59,14 @@ docker compose up -d --build
 docker compose logs -f tina    # Build dauert beim ersten Mal ~3-5 min
 ```
 
-Nach dem Build: `https://autor.statthus.de/admin/index.html` öffnen → Login mit:
+Nach dem Build: ein einmaliger Indexierungs-Lauf, damit die existierenden
+Hugo-Inhalte in MongoDB landen (sonst sieht der Editor leere Listen):
+
+```bash
+docker compose exec tina npx tinacms build
+```
+
+Anschließend `https://autor.statthus.de/admin/index.html` öffnen → Login mit:
 - Username: `admin`
 - Passwort: `statthus-init-2026`
 
