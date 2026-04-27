@@ -1,22 +1,19 @@
 import { createDatabase, createLocalDatabase } from "@tinacms/datalayer";
-import { RedisLevel } from "upstash-redis-level";
+import { MongodbLevel } from "mongodb-level";
 import { GitHubProvider } from "tinacms-gitprovider-github";
 
-// Manage this flag in your CI/CD pipeline and make sure it is set to false in production
+// Im Produktivbetrieb auf false (per Env-Var TINA_PUBLIC_IS_LOCAL).
+// Lokal (npm run dev) ist es true → Filesystem statt GitHub + MongoDB.
 const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 
 const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN as string;
-const owner = (process.env.GITHUB_OWNER ||
-  process.env.VERCEL_GIT_REPO_OWNER) as string;
-const repo = (process.env.GITHUB_REPO ||
-  process.env.VERCEL_GIT_REPO_SLUG) as string;
-const branch = (process.env.GITHUB_BRANCH ||
-  process.env.VERCEL_GIT_COMMIT_REF ||
-  "main") as string;
+const owner = process.env.GITHUB_OWNER as string;
+const repo = process.env.GITHUB_REPO as string;
+const branch = (process.env.GITHUB_BRANCH || "main") as string;
 
-if (!branch) {
+if (!isLocal && (!token || !owner || !repo)) {
   throw new Error(
-    "No branch found. Make sure that you have set the GITHUB_BRANCH or process.env.VERCEL_GIT_COMMIT_REF environment variable."
+    "Im Produktivbetrieb müssen GITHUB_PERSONAL_ACCESS_TOKEN, GITHUB_OWNER und GITHUB_REPO gesetzt sein."
   );
 }
 
@@ -29,13 +26,10 @@ export default isLocal
         repo,
         token,
       }),
-      databaseAdapter: new RedisLevel<string, Record<string, any>>({
-        redis: {
-          url:
-            (process.env.KV_REST_API_URL as string) || "http://localhost:8079",
-          token: (process.env.KV_REST_API_TOKEN as string) || "example_token",
-        },
-        debug: process.env.DEBUG === "true" || false,
+      databaseAdapter: new MongodbLevel<string, Record<string, any>>({
+        collectionName: process.env.MONGODB_COLLECTION || "tinacms",
+        dbName: process.env.MONGODB_DBNAME || "tinacms",
+        mongoUri: process.env.MONGODB_URI as string,
       }),
       namespace: branch,
     });
