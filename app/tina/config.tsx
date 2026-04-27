@@ -7,6 +7,7 @@ import { defineConfig, LocalAuthProvider } from "tinacms";
 import { EventCollection } from "./collections/event";
 import { NewsCollection } from "./collections/news";
 import { PersonCollection } from "./collections/person";
+import { ThemenIntroCollection } from "./collections/themen-intro";
 
 const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 
@@ -34,6 +35,7 @@ export default defineConfig({
       EventCollection,
       NewsCollection,
       PersonCollection,
+      ThemenIntroCollection,
     ],
   },
 });
