@@ -4,7 +4,9 @@ import {
 } from "tinacms-authjs/dist/tinacms";
 import { defineConfig, LocalAuthProvider } from "tinacms";
 
-import { PageCollection } from "./collections/page";
+import { EventCollection } from "./collections/event";
+import { NewsCollection } from "./collections/news";
+import { PersonCollection } from "./collections/person";
 
 const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 
@@ -13,18 +15,25 @@ export default defineConfig({
     ? new LocalAuthProvider()
     : new UsernamePasswordAuthJSProvider(),
   contentApiUrlOverride: "/api/tina/gql",
+
   build: {
     publicFolder: "public",
     outputFolder: "admin",
   },
+
   media: {
     tina: {
-      mediaRoot: "",
-      publicFolder: "public",
-      static: true,
+      mediaRoot: "static-images",
+      publicFolder: "content/german",
     },
   },
+
   schema: {
-    collections: [TinaUserCollection, PageCollection],
+    collections: [
+      TinaUserCollection,
+      EventCollection,
+      NewsCollection,
+      PersonCollection,
+    ],
   },
 });
