@@ -1,6 +1,14 @@
-# Caddy holt automatisch ein Let's-Encrypt-Zertifikat für CMS_DOMAIN.
+# Caddy holt automatisch ein Let's-Encrypt-Zertifikat für CMS_DOMAIN —
+# vorausgesetzt, die Domain löst öffentlich auf den Server auf.
+#
+# Zum Testen ohne öffentliches DNS:
+#   1. Auskommentiertes `tls internal` unten aktivieren (selbstsigniertes Cert)
+#   2. Lokal /etc/hosts: 178.105.26.106 schreibe.statthus-husum.de
+#   3. docker compose restart caddy
+# Sobald DNS live ist: `tls internal` wieder auskommentieren, Caddy neu starten.
 
 {$CMS_DOMAIN} {
+    # tls internal             # ← TEST-MODUS: selbstsigniertes Cert ohne DNS
     encode gzip zstd
 
     header {
