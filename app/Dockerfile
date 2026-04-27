@@ -26,6 +26,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # `docker compose exec tina npx tinacms build` nach dem ersten Start.
 RUN npm run build
 
+# Custom UI-Tweaks ins Admin-HTML injecten (z.B. Search-Banner ausblenden,
+# da Search nur via TinaCloud verfügbar ist und wir self-hosted sind).
+RUN sed -i 's|</head>|<script src="/admin-tweaks.js"></script></head>|' /app/public/admin/index.html
+
 # ---- runner ----
 FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
