@@ -7,7 +7,13 @@ FROM node:${NODE_VERSION}-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
-RUN npm ci --legacy-peer-deps
+# npm ci wenn Lockfile vorhanden (deterministisch + schneller),
+# sonst npm install (erster Run, generiert das Lockfile im Container).
+RUN if [ -f package-lock.json ]; then \
+      npm ci --legacy-peer-deps; \
+    else \
+      npm install --legacy-peer-deps; \
+    fi
 
 # ---- builder ----
 FROM node:${NODE_VERSION}-alpine AS builder
