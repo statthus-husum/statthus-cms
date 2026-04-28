@@ -19,8 +19,8 @@ export const NewsCollection: Collection = {
     // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
     //   router: ({ document }) => `https://statthus-husum.de/news/${document._sys.filename}/`,
     filename: {
-      slugify: (values) =>
-        (values?.title || "")
+      slugify: (values) => {
+        const slug = (values?.title || "")
           .toString()
           .toLowerCase()
           .replace(/[äÄ]/g, "ae")
@@ -28,7 +28,9 @@ export const NewsCollection: Collection = {
           .replace(/[üÜ]/g, "ue")
           .replace(/ß/g, "ss")
           .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, ""),
+          .replace(/^-+|-+$/g, "");
+        return slug || `neuer-news-eintrag-${Date.now()}`;
+      },
     },
   },
   fields: [

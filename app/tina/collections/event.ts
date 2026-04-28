@@ -21,8 +21,8 @@ export const EventCollection: Collection = {
     // absoluter URL, sobald die Hugo-Site auf https://statthus-husum.de live ist:
     //   router: ({ document }) => `https://statthus-husum.de/event/${document._sys.filename}/`,
     filename: {
-      slugify: (values) =>
-        (values?.title || "")
+      slugify: (values) => {
+        const slug = (values?.title || "")
           .toString()
           .toLowerCase()
           .replace(/[äÄ]/g, "ae")
@@ -30,7 +30,11 @@ export const EventCollection: Collection = {
           .replace(/[üÜ]/g, "ue")
           .replace(/ß/g, "ss")
           .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, ""),
+          .replace(/^-+|-+$/g, "");
+        // Fallback wenn Titel noch leer — sonst entsteht ein leerer Dateiname
+        // ".md" und Tina kann den keiner Collection zuordnen.
+        return slug || `neue-veranstaltung-${Date.now()}`;
+      },
     },
   },
   fields: [
