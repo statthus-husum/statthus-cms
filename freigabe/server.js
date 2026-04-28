@@ -82,6 +82,42 @@ async function fetchLastCommitForFile(filename) {
   };
 }
 
+// Holt den title aus YAML-Frontmatter einer Datei auf staging.
+// Bei gelöschten oder binären Dateien null.
+async function fetchFileTitle(filename, status) {
+  if (status === "removed") return null;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodeURI(filename)}?ref=${STAGING}`,
+      {
+        headers: {
+          Authorization: `Bearer ${GH_TOKEN}`,
+          Accept: "application/vnd.github.raw",
+        },
+      },
+    );
+    if (!res.ok) return null;
+    const text = await res.text();
+    // Title aus dem Frontmatter rauspflücken (zwischen --- ... ---)
+    const fm = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!fm) return null;
+    const titleLine = fm[1].match(/^title:\s*["']?([^"'\n]+?)["']?\s*$/m);
+    return titleLine ? titleLine[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Mappt Pfad → menschlichen Typ-Namen.
+function kindLabelForPath(path) {
+  if (/^content\/german\/event\//.test(path)) return "Veranstaltung";
+  if (/^content\/german\/news\//.test(path)) return "News";
+  if (/^content\/german\/people\//.test(path)) return "Bewohner:in";
+  if (/^content\/german\/themen\//.test(path)) return "Themen-Intro";
+  if (/^content\/users\//.test(path)) return "Editor-Account";
+  return null;
+}
+
 app.get("/", async (req, res) => {
   try {
     const [compare, mainBlobs, stagingBlobs] = await Promise.all([
@@ -95,11 +131,19 @@ app.get("/", async (req, res) => {
       (f) => mainBlobs.get(f.filename) !== stagingBlobs.get(f.filename),
     );
 
-    // Pro Datei letzten Commit auf staging holen (parallel)
+    // Pro Datei: letzten Commit + Titel parallel holen
     const enriched = await Promise.all(
       trulyPending.map(async (f) => {
-        const last = await fetchLastCommitForFile(f.filename);
-        return { ...f, lastCommit: last };
+        const [last, title] = await Promise.all([
+          fetchLastCommitForFile(f.filename),
+          fetchFileTitle(f.filename, f.status),
+        ]);
+        return {
+          ...f,
+          lastCommit: last,
+          title,
+          kind: kindLabelForPath(f.filename),
+        };
       }),
     );
 
@@ -274,6 +318,8 @@ ul.file-list summary input[type=checkbox]{width:1.1rem;height:1.1rem;cursor:poin
 .tag.removed{background:#fee2e2;color:#7f1d1d}
 .tag.modified{background:#dbeafe;color:#1e3a8a}
 .tag.renamed{background:#fef3c7;color:#78350f}
+.title-and-kind{font-size:.95rem}
+.kind{font-size:.75rem;color:#6b7280;background:#f3f4f6;padding:.1rem .4rem;border-radius:.3rem;margin-left:.3rem;font-weight:400;white-space:nowrap}
 .meta-line{font-size:.8rem;color:#6b7280;flex-basis:100%;padding-left:2.5rem;margin-top:.1rem}
 @media(min-width:42rem){.meta-line{flex-basis:auto;padding-left:.4rem}}
 .delta{font-size:.75rem;color:#6b7280;margin-left:auto}
@@ -308,15 +354,22 @@ function renderFileItem(f) {
   const status = f.status || "modified";
   const label = STATUS_LABELS[status] || status;
   const id = "f-" + Math.random().toString(36).slice(2, 8);
+
+  // Titel + Typ statt Pfad. Fallback auf Pfad, falls Titel nicht ermittelbar.
+  const heading = f.title
+    ? `<strong>${escape(f.title)}</strong>${f.kind ? ` <span class="kind">${escape(f.kind)}</span>` : ""}`
+    : `<code>${escape(f.filename)}</code>`;
+
   const meta = f.lastCommit
-    ? `${escape(f.lastCommit.author)}, ${escape(formatDate(f.lastCommit.date))}`
+    ? `${escape(f.lastCommit.author)} · ${escape(formatDate(f.lastCommit.date))}`
     : "";
+
   return `<li>
   <details>
     <summary>
       <input type="checkbox" name="files" value="${escape(f.filename)}" id="${id}" checked onclick="event.stopPropagation()">
       <span class="tag ${escape(status)}">${escape(label)}</span>
-      <code>${escape(f.filename)}</code>
+      <span class="title-and-kind">${heading}</span>
       <span class="meta-line">${meta}</span>
       <span class="delta"><span class="add">+${f.additions || 0}</span> / <span class="del">−${f.deletions || 0}</span></span>
     </summary>
