@@ -11,13 +11,21 @@
   //    :has() ist seit 2023 in allen modernen Browsern.
   var style = document.createElement("style");
   style.id = "statthus-tweaks-style";
-  style.textContent =
-    'div:has(> a[href*="tina.io/docs/r/content-search"]),' +
-    'div:has(> a[href*="tina.io/docs/reference/search"]),' +
-    'div:has(> a[href*="search/overview"]),' +
-    'div:has(> a[href*="search/configuration"]) {' +
-    "display: none !important;" +
-    "}";
+  style.textContent = [
+    // 1. "you have not configured search"-Banner ausblenden — Search gibt's
+    //    nur via TinaCloud, wir sind self-hosted
+    'div:has(> a[href*="tina.io/docs/r/content-search"]),',
+    'div:has(> a[href*="tina.io/docs/reference/search"]),',
+    'div:has(> a[href*="search/overview"]),',
+    'div:has(> a[href*="search/configuration"])',
+    "{ display: none !important; }",
+    // 2. "Add Folder"-Button verstecken — Hugo kann mit nested Subfolder-
+    //    Strukturen schlecht umgehen, plus Editoren erzeugen damit
+    //    versehentlich Phantom-Pfade
+    'a[href="#/collections/new-folder"],',
+    'a[href*="new-folder"]',
+    "{ display: none !important; }",
+  ].join("\n");
   (document.head || document.documentElement).appendChild(style);
 
   // 2. JS-Schicht: MutationObserver als Fallback für ältere Browser
