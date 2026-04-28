@@ -43,13 +43,21 @@ export default async function handler(
 
     const items = files
       .filter((f: any) => f.type === "file")
-      .map((f: any) => ({
-        type: "file",
-        id: f.path,
-        filename: f.name,
-        directory: MEDIA_DIR,
-        src: `/images/${f.name}`,
-      }));
+      .map((f: any) => {
+        const src = `/images/${f.name}`;
+        return {
+          type: "file",
+          id: f.path,
+          filename: f.name,
+          directory: MEDIA_DIR,
+          src,
+          thumbnails: {
+            "75x75": src,
+            "400x400": src,
+            "1000x1000": src,
+          },
+        };
+      });
 
     return res.json({
       items,

@@ -38,14 +38,14 @@ export default class GitHubMediaStore {
         filename: result.filename,
         directory: result.directory,
         src: result.src,
+        thumbnails: {
+          "75x75": result.src,
+          "400x400": result.src,
+          "1000x1000": result.src,
+        },
       });
     }
     return out;
-  }
-
-  // Tina erwartet hier einen plain string, kein {src}-Objekt.
-  async previewSrc(publicUrl: string): Promise<string> {
-    return publicUrl;
   }
 
   async list(options: MediaListOptions): Promise<MediaList> {
