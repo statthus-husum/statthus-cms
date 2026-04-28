@@ -68,26 +68,44 @@ async function fetchBlobMap(branch) {
   return map;
 }
 
+// Letzter Commit auf staging, der eine bestimmte Datei berührt hat —
+// liefert Autor + Zeitpunkt für die Anzeige in der Datei-Liste.
+async function fetchLastCommitForFile(filename) {
+  const commits = await gh(
+    `/repos/${GH_OWNER}/${GH_REPO}/commits?sha=${STAGING}&path=${encodeURIComponent(filename)}&per_page=1`,
+  );
+  if (!Array.isArray(commits) || commits.length === 0) return null;
+  const c = commits[0];
+  return {
+    author: c.commit?.author?.name || c.author?.login || "Unbekannt",
+    date: c.commit?.author?.date || null,
+  };
+}
+
 app.get("/", async (req, res) => {
   try {
-    // 1. Compare API (für Commits + Patches + Status-Hinweise)
-    // 2. Tree-basierte Echt-Diff-Prüfung (filtert Cherry-Pick-Geister raus)
     const [compare, mainBlobs, stagingBlobs] = await Promise.all([
       gh(`/repos/${GH_OWNER}/${GH_REPO}/compare/${PROD}...${STAGING}`),
       fetchBlobMap(PROD),
       fetchBlobMap(STAGING),
     ]);
 
-    // Aus compare.files nur die behalten, deren Blob-SHA auf main !== staging
-    const trulyPending = (compare.files || []).filter((f) => {
-      const onMain = mainBlobs.get(f.filename);
-      const onStaging = stagingBlobs.get(f.filename);
-      return onMain !== onStaging;
-    });
+    // Cherry-Pick-Geister rausfiltern: behalten, wenn Blob-SHA wirklich abweicht
+    const trulyPending = (compare.files || []).filter(
+      (f) => mainBlobs.get(f.filename) !== stagingBlobs.get(f.filename),
+    );
+
+    // Pro Datei letzten Commit auf staging holen (parallel)
+    const enriched = await Promise.all(
+      trulyPending.map(async (f) => {
+        const last = await fetchLastCommitForFile(f.filename);
+        return { ...f, lastCommit: last };
+      }),
+    );
 
     res
       .set("Content-Type", "text/html; charset=utf-8")
-      .send(renderDashboard({ ...compare, files: trulyPending }));
+      .send(renderDashboard({ files: enriched }));
   } catch (err) {
     res.status(500).send(errorPage(err.message));
   }
@@ -256,6 +274,8 @@ ul.file-list summary input[type=checkbox]{width:1.1rem;height:1.1rem;cursor:poin
 .tag.removed{background:#fee2e2;color:#7f1d1d}
 .tag.modified{background:#dbeafe;color:#1e3a8a}
 .tag.renamed{background:#fef3c7;color:#78350f}
+.meta-line{font-size:.8rem;color:#6b7280;flex-basis:100%;padding-left:2.5rem;margin-top:.1rem}
+@media(min-width:42rem){.meta-line{flex-basis:auto;padding-left:.4rem}}
 .delta{font-size:.75rem;color:#6b7280;margin-left:auto}
 .delta .add{color:#16a34a}
 .delta .del{color:#dc2626}
@@ -288,17 +308,37 @@ function renderFileItem(f) {
   const status = f.status || "modified";
   const label = STATUS_LABELS[status] || status;
   const id = "f-" + Math.random().toString(36).slice(2, 8);
+  const meta = f.lastCommit
+    ? `${escape(f.lastCommit.author)}, ${escape(formatDate(f.lastCommit.date))}`
+    : "";
   return `<li>
   <details>
     <summary>
       <input type="checkbox" name="files" value="${escape(f.filename)}" id="${id}" checked onclick="event.stopPropagation()">
       <span class="tag ${escape(status)}">${escape(label)}</span>
       <code>${escape(f.filename)}</code>
+      <span class="meta-line">${meta}</span>
       <span class="delta"><span class="add">+${f.additions || 0}</span> / <span class="del">−${f.deletions || 0}</span></span>
     </summary>
     ${renderPatch(f.patch)}
   </details>
 </li>`;
+}
+
+function formatDate(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 const FILE_LIST_SCRIPT = `<script>
@@ -337,36 +377,25 @@ const FILE_LIST_SCRIPT = `<script>
 })();
 </script>`;
 
-function renderDashboard(compare) {
-  const commits = compare?.commits || [];
-  const files = compare?.files || [];
-  const ahead = compare?.ahead_by ?? commits.length;
+function renderDashboard(data) {
+  const files = data.files || [];
+  const count = files.length;
 
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>staTThus Freigabe</title>${commonStyle()}</head>
 <body>
 <h1>staTThus · Freigabe</h1>
-<p><small>Vergleicht <code>${escape(STAGING)}</code> mit <code>${escape(PROD)}</code> in <code>${escape(GH_OWNER)}/${escape(GH_REPO)}</code></small></p>
 
-<div class="status ${ahead === 0 ? "empty" : ""}">
-${ahead === 0
+<div class="status ${count === 0 ? "empty" : ""}">
+${count === 0
   ? "✅ Alles aktuell. Keine Änderungen zur Freigabe."
-  : `📝 <strong>${ahead}</strong> Commit(s), <strong>${files.length}</strong> Datei(en) warten auf Freigabe.`}
+  : `📝 <strong>${count}</strong> ${count === 1 ? "Datei wartet" : "Dateien warten"} auf Freigabe.`}
 </div>
 
-${ahead > 0 ? `
-<h2>Commits</h2>
-<ul class="commit-list">
-${commits.map((c) => `<li>
-  <strong>${escape(c.commit.author.name)}</strong>: ${escape(c.commit.message.split("\n")[0])}
-  <br><small>${new Date(c.commit.author.date).toLocaleString("de-DE")}</small>
-</li>`).join("")}
-</ul>
-
+${count > 0 ? `
 <form method="POST" action="${BASE}/merge" onsubmit="return confirm('Wirklich freigeben? Die ausgewählten Änderungen erscheinen nach 1–2 Min auf der Live-Site.')">
 
-<h2>Geänderte Dateien</h2>
-<p><small>Standardmäßig sind alle ausgewählt. Häkchen entfernen, um eine Datei <em>nicht</em> freizugeben — sie bleibt auf <code>${escape(STAGING)}</code> liegen, bis du sie später freigibst oder verwirfst.</small></p>
+<p><small>Häkchen entfernen, um eine Datei <em>nicht</em> freizugeben — sie wartet dann auf den nächsten Durchgang.</small></p>
 
 <div class="toolbar">
   <label><input type="checkbox" id="select-all" checked> Alle auswählen</label>
@@ -379,7 +408,6 @@ ${files.map(renderFileItem).join("")}
 
 <div class="actions">
   <button class="btn" type="submit" id="submit-btn">Ausgewählte Dateien freigeben</button>
-  <a href="https://github.com/${escape(GH_OWNER)}/${escape(GH_REPO)}/compare/${escape(PROD)}...${escape(STAGING)}" target="_blank" rel="noopener" style="margin-left:auto;font-size:.85rem">Diff in GitHub anzeigen ↗</a>
 </div>
 
 </form>
