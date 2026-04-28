@@ -25,6 +25,12 @@
     'a[href="#/collections/new-folder"],',
     'a[href*="new-folder"]',
     "{ display: none !important; }",
+    // 3. Versions-Update-Hinweis verstecken (Warnsymbol + "vX.Y.Z published"-
+    //    Zeile unten links). Wir bleiben bewusst auf v2 — der Hinweis dient
+    //    nur Verwirrung.
+    "span.text-yellow-700,",
+    "svg.lucide-triangle-alert:has(+ span.text-yellow-700)",
+    "{ display: none !important; }",
   ].join("\n");
   (document.head || document.documentElement).appendChild(style);
 
