@@ -301,10 +301,9 @@ app.post("/merge", async (req, res) => {
     res.set("Content-Type", "text/html; charset=utf-8").send(`<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>Freigegeben</title>${commonStyle()}</head>
 <body><h1>✅ Freigegeben</h1>
-<p><strong>${includedPaths.length}</strong> Datei(en) auf <code>${escape(PROD)}</code> übertragen.</p>
-<p>Commit: <code>${escape(newCommit.sha.substring(0, 8))}</code></p>
+<p><strong>${includedPaths.length}</strong> ${includedPaths.length === 1 ? "Datei wurde" : "Dateien wurden"} veröffentlicht.</p>
 <details><summary>Was wurde freigegeben</summary>
-<ul>${includedPaths.map((p) => `<li><code>${escape(p)}</code></li>`).join("")}</ul>
+<ul>${includedPaths.map((p) => `<li>${escape(p)}</li>`).join("")}</ul>
 </details>
 <p class="cleanup-note">${escape(cleanup.message)}</p>
 <p>Die Site wird in 1–2 Minuten aktualisiert.</p>
@@ -428,6 +427,8 @@ ul.file-list summary input[type=checkbox]{width:1.1rem;height:1.1rem;cursor:poin
 @media(min-width:42rem){.meta-line{flex-basis:auto;padding-left:.4rem}}
 .delta{font-size:.75rem;color:#6b7280;margin-left:auto}
 .cleanup-note{padding:.5rem .75rem;background:#f0f9ff;border-left:3px solid #38bdf8;border-radius:.3rem;color:#0c4a6e;font-size:.9rem}
+.image-preview{padding:1rem;background:#f9fafb;text-align:center}
+.image-preview img{max-width:100%;max-height:60vh;border-radius:.4rem;box-shadow:0 4px 12px rgba(0,0,0,.1)}
 .delta .add{color:#16a34a}
 .delta .del{color:#dc2626}
 code{background:#f4f4f4;padding:.1rem .3rem;border-radius:.2rem;font-size:.9em}
@@ -442,6 +443,26 @@ code{background:#f4f4f4;padding:.1rem .3rem;border-radius:.2rem;font-size:.9em}
 small{color:#666}
 .diff-summary{font-size:.85em;color:#666}
 </style>`;
+
+function isImagePath(path) {
+  return /\.(jpe?g|png|gif|webp|avif|svg)$/i.test(path);
+}
+
+function imagePreviewUrl(filename, status) {
+  // Bei "removed" zeigen wir die Vorgängerversion auf main, sonst den
+  // staging-Stand. raw.githubusercontent.com serviert öffentliche Repos
+  // ohne Auth.
+  const branch = status === "removed" ? PROD : STAGING;
+  return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${branch}/${filename}`;
+}
+
+function renderPreview(f) {
+  if (isImagePath(f.filename)) {
+    const url = imagePreviewUrl(f.filename, f.status);
+    return `<div class="image-preview"><img src="${escape(url)}" alt="${escape(f.filename)}" loading="lazy" /></div>`;
+  }
+  return renderPatch(f.patch);
+}
 
 function renderPatch(patch) {
   if (!patch) return '<div class="diff"><div class="meta">(Binärdatei oder kein Diff verfügbar)</div></div>';
@@ -478,7 +499,7 @@ function renderFileItem(f) {
       <span class="meta-line">${meta}</span>
       <span class="delta"><span class="add">+${f.additions || 0}</span> / <span class="del">−${f.deletions || 0}</span></span>
     </summary>
-    ${renderPatch(f.patch)}
+    ${renderPreview(f)}
   </details>
 </li>`;
 }
