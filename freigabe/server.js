@@ -83,7 +83,7 @@ app.post("/merge", async (req, res) => {
         .set("Content-Type", "text/html; charset=utf-8")
         .send(noticePage(
           "Keine Dateien ausgewählt",
-          "Bitte mindestens eine Datei ankreuzen, dann erneut „Freigeben" klicken.",
+          'Bitte mindestens eine Datei ankreuzen, dann erneut "Freigeben" klicken.',
         ));
     }
 
