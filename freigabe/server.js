@@ -293,6 +293,11 @@ app.post("/merge", async (req, res) => {
       body: JSON.stringify({ sha: newCommit.sha }),
     });
 
+    // Staging direkt aufräumen — staging neu auf main basieren, nur die noch
+    // ausstehenden Datei-Änderungen oben drauf. So bleibt staging immer als
+    // "main + offene Edits" sauber, ohne Commit-Müllhaufen.
+    const cleanup = await rebaseStagingOntoMain(newCommit.sha);
+
     res.set("Content-Type", "text/html; charset=utf-8").send(`<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>Freigegeben</title>${commonStyle()}</head>
 <body><h1>✅ Freigegeben</h1>
@@ -301,6 +306,7 @@ app.post("/merge", async (req, res) => {
 <details><summary>Was wurde freigegeben</summary>
 <ul>${includedPaths.map((p) => `<li><code>${escape(p)}</code></li>`).join("")}</ul>
 </details>
+<p class="cleanup-note">${escape(cleanup.message)}</p>
 <p>Die Site wird in 1–2 Minuten aktualisiert.</p>
 <p><a href="${BASE}/">Zurück zur Übersicht</a></p>
 </body></html>`);
@@ -308,6 +314,72 @@ app.post("/merge", async (req, res) => {
     res.status(500).send(errorPage(err.message));
   }
 });
+
+// Staging neu auf main basieren. Nur die Datei-Inhalte, die auf staging
+// existieren UND noch nicht auf main sind, werden als ein neuer Commit
+// oben auf main gesetzt. Force-Update der staging-Ref.
+async function rebaseStagingOntoMain(mainSha) {
+  const [mainBlobs, stagingBlobs] = await Promise.all([
+    fetchBlobMap(PROD),
+    fetchBlobMap(STAGING),
+  ]);
+
+  // Welche Dateien haben unterschiedliche Blob-SHAs?
+  const treeOps = [];
+  const allPaths = new Set([...mainBlobs.keys(), ...stagingBlobs.keys()]);
+  for (const path of allPaths) {
+    const onMain = mainBlobs.get(path);
+    const onStaging = stagingBlobs.get(path);
+    if (onMain === onStaging) continue;
+    treeOps.push({
+      path,
+      mode: "100644",
+      type: "blob",
+      sha: onStaging || null, // null = entfernen
+    });
+  }
+
+  if (treeOps.length === 0) {
+    // staging und main sind inhaltlich identisch — staging einfach auf main resetten
+    await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/refs/heads/${STAGING}`, {
+      method: "PATCH",
+      body: JSON.stringify({ sha: mainSha, force: true }),
+    });
+    return {
+      kind: "reset",
+      message: `Staging zurückgesetzt — alles freigegeben, nichts mehr offen.`,
+    };
+  }
+
+  // Neuen Tree auf main + treeOps anlegen
+  const mainCommit = await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/commits/${mainSha}`);
+  const newTree = await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/trees`, {
+    method: "POST",
+    body: JSON.stringify({
+      base_tree: mainCommit.tree.sha,
+      tree: treeOps,
+    }),
+  });
+
+  const stagingCommit = await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/commits`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: `Aufgeräumt: ${treeOps.length} offene Änderung(en) auf main rebased`,
+      tree: newTree.sha,
+      parents: [mainSha],
+    }),
+  });
+
+  await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/refs/heads/${STAGING}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sha: stagingCommit.sha, force: true }),
+  });
+
+  return {
+    kind: "rebased",
+    message: `Staging aufgeräumt — ${treeOps.length} Änderung(en) bleiben offen für die nächste Freigabe.`,
+  };
+}
 
 const escape = (s) =>
   String(s).replace(
@@ -355,6 +427,7 @@ ul.file-list summary input[type=checkbox]{width:1.1rem;height:1.1rem;cursor:poin
 .meta-line{font-size:.8rem;color:#6b7280;flex-basis:100%;padding-left:2.5rem;margin-top:.1rem}
 @media(min-width:42rem){.meta-line{flex-basis:auto;padding-left:.4rem}}
 .delta{font-size:.75rem;color:#6b7280;margin-left:auto}
+.cleanup-note{padding:.5rem .75rem;background:#f0f9ff;border-left:3px solid #38bdf8;border-radius:.3rem;color:#0c4a6e;font-size:.9rem}
 .delta .add{color:#16a34a}
 .delta .del{color:#dc2626}
 code{background:#f4f4f4;padding:.1rem .3rem;border-radius:.2rem;font-size:.9em}
