@@ -22,8 +22,19 @@
         # X-Frame-Options bewusst NICHT auf DENY gesetzt — Tina iframe-Preview braucht's.
     }
 
+    # Freigabe-App (Approval-Dashboard) auf /freigabe/* — Pfad wird gestripped,
+    # die App sieht nur "/" und "/merge".
+    handle_path /freigabe* {
+        reverse_proxy freigabe:3001 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Alles andere geht an Tina (inkl. /admin/...)
     reverse_proxy tina:3000 {
-        # Tina-WebSocket-Verbindungen (Live-Updates im Editor) durchschleusen
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

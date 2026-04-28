@@ -1,0 +1,14 @@
+{
+  "name": "statthus-freigabe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mini-Approval-App: zeigt staging->main-Diff im statthus-website-Repo und mergt per Button (ohne dass der Admin GitHub anfassen muss)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "express-basic-auth": "^1.2.1"
+  }
+}

@@ -51,6 +51,8 @@ In der `.env` zwingend zu setzen:
 - `GITHUB_PERSONAL_ACCESS_TOKEN` — Fine-grained PAT mit `Contents: Read & Write` nur auf `statthus-website`
 - `NEXTAUTH_SECRET` — `openssl rand -base64 32`
 - `MONGO_PASS` — beliebiges starkes Passwort (wird beim ersten Mongo-Start gesetzt)
+- `FREIGABE_PASS` — Passwort für die Approval-App unter `/freigabe/`
+- `GITHUB_BRANCH=staging` (Editorial Workflow) oder `main` (Direktveröffentlichung)
 
 Dann Stack hochziehen:
 
@@ -71,6 +73,21 @@ Anschließend `https://schreibe.statthus-husum.de/admin/index.html` öffnen → 
 - Passwort: `statthus-init-2026`
 
 ⚠️ Beim ersten Login wirst du zum Passwort-Wechsel aufgefordert. Tu das.
+
+## Editorial Workflow (`staging` → `main`)
+
+Tina ist konfiguriert, in den `staging`-Branch des Hugo-Repos zu committen.
+Dort sammeln sich Bewohner:innen-Edits, bis sie freigegeben werden.
+
+**Freigabe-App:** [`https://schreibe.statthus-husum.de/freigabe/`](https://schreibe.statthus-husum.de/freigabe/)
+
+- Login: `FREIGABE_USER` / `FREIGABE_PASS` aus `.env` (HTTP Basic Auth)
+- Zeigt offene Commits + geänderte Dateien (`staging` vs `main`)
+- „Alle Änderungen freigeben" → Merge per GitHub-API → Hugo-Build → live
+- Falls Konflikte: Diff in GitHub anschauen, manuell mergen (Notfall-Pfad)
+
+Direktes Deployment ohne Review: `GITHUB_BRANCH=main` in `.env`, Container neu
+starten — Tina committet dann direkt auf `main`.
 
 ## Schema / Collections
 

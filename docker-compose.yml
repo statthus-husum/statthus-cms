@@ -1,9 +1,12 @@
-# staTThus CMS Stack — Phase 2
+# staTThus CMS Stack — Phase 2 + Editorial Workflow
 #
-# Drei Container:
-#   caddy  — TLS-Terminator + Reverse Proxy auf tina:3000
-#   tina   — Next.js + TinaCMS (Admin UI + GraphQL-API)
-#   mongo  — Datalayer-Index für Tina (Source of Truth bleibt Git)
+# Vier Container:
+#   caddy     — TLS-Terminator + Reverse Proxy
+#               /freigabe/* → freigabe:3001
+#               sonst       → tina:3000
+#   tina      — Next.js + TinaCMS (Editor-UI auf /admin/, schreibt nach `staging`)
+#   freigabe  — Mini-Approval-App (zeigt Diff staging→main, mergt per Klick)
+#   mongo     — Datalayer-Index für Tina (Source of Truth bleibt Git)
 #
 # Persistente Daten gehen unter ${CMS_DATA_DIR}, das auf der Hetzner-VM
 # auf /opt/cms-data (Hetzner-Volume) zeigt, lokal auf ./data.
@@ -15,6 +18,7 @@ services:
     restart: unless-stopped
     depends_on:
       - tina
+      - freigabe
     ports:
       - "80:80"
       - "443:443"
@@ -51,6 +55,29 @@ services:
       - MONGODB_URI=mongodb://${MONGO_USER:-tina}:${MONGO_PASS}@mongo:27017/${MONGODB_DBNAME:-tinacms}?authSource=admin
       - MONGODB_DBNAME=${MONGODB_DBNAME:-tinacms}
       - MONGODB_COLLECTION=${MONGODB_COLLECTION:-tinacms}
+    networks:
+      - statthus
+
+  freigabe:
+    build:
+      context: ./freigabe
+      dockerfile: Dockerfile
+    image: statthus-cms-freigabe:local
+    container_name: statthus-freigabe
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - BASE_PATH=/freigabe
+      - ADMIN_USERNAME=${FREIGABE_USER:-admin}
+      - ADMIN_PASSWORD=${FREIGABE_PASS}
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+      - GITHUB_OWNER=${GITHUB_OWNER:-statthus-husum}
+      - GITHUB_REPO=${GITHUB_REPO:-statthus-website}
+      - STAGING_BRANCH=${GITHUB_BRANCH:-staging}
+      - PROD_BRANCH=${PROD_BRANCH:-main}
     networks:
       - statthus
 
