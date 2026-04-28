@@ -49,11 +49,6 @@ export default async function handler(
         filename: f.name,
         directory: MEDIA_DIR,
         src: `/images/${f.name}`,
-        thumbnails: {
-          "75x75": `/images/${f.name}`,
-          "400x400": `/images/${f.name}`,
-          "1000x1000": `/images/${f.name}`,
-        },
       }));
 
     return res.json({
