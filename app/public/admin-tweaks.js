@@ -7,34 +7,56 @@
  * der Hinweis ist permanent ohne Handlungsmöglichkeit.
  */
 (function () {
-  // Tina nutzt verschiedene URL-Pfade für die Search-Doku, je nach Version.
-  // Wir matchen auf alle bekannten Varianten.
-  var SEARCH_LINK_SELECTORS = [
+  // 1. CSS-Schicht: greift instant beim Render — kein Flash.
+  //    :has() ist seit 2023 in allen modernen Browsern.
+  var style = document.createElement("style");
+  style.id = "statthus-tweaks-style";
+  style.textContent =
+    'div:has(> a[href*="tina.io/docs/r/content-search"]),' +
+    'div:has(> a[href*="tina.io/docs/reference/search"]),' +
+    'div:has(> a[href*="search/overview"]),' +
+    'div:has(> a[href*="search/configuration"]) {' +
+    "display: none !important;" +
+    "}";
+  (document.head || document.documentElement).appendChild(style);
+
+  // 2. JS-Schicht: MutationObserver als Fallback für ältere Browser
+  //    ohne :has()-Support, plus für Edge-Cases wo der Banner tiefer
+  //    verschachtelt rendert.
+  var SELECTORS = [
     'a[href*="content-search"]',
     'a[href*="search/overview"]',
     'a[href*="search/configuration"]',
   ].join(", ");
 
-  function hideSearchBanner() {
-    var found = false;
-    document.querySelectorAll(SEARCH_LINK_SELECTORS).forEach(function (link) {
-      // Direkter umschließender div ist hier der Banner.
+  var pending = false;
+  function scan() {
+    pending = false;
+    document.querySelectorAll(SELECTORS).forEach(function (link) {
       var banner = link.closest("div");
-      if (banner) {
+      if (banner && banner.style.display !== "none") {
         banner.style.display = "none";
-        found = true;
       }
     });
-    return found;
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    (window.requestAnimationFrame || setTimeout)(scan, 16);
   }
 
-  // Initial-Versuch + Polling, bis das React-Bundle den Banner gerendert hat
-  // (max 30 s, dann aufgeben).
-  var attempts = 0;
-  var iv = setInterval(function () {
-    attempts++;
-    if (hideSearchBanner() || attempts > 60) {
-      clearInterval(iv);
-    }
-  }, 500);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scan);
+  } else {
+    scan();
+  }
+
+  var obs = new MutationObserver(schedule);
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Nach 60 s den Observer wieder abklemmen — der Banner sollte längst
+  // gerendert sein, danach würde der Observer nur unnötig CPU verbrauchen.
+  setTimeout(function () {
+    obs.disconnect();
+  }, 60000);
 })();
