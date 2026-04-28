@@ -118,22 +118,57 @@ function kindLabelForPath(path) {
   return null;
 }
 
+// Echter Tree-Diff zwischen main und staging — autoritative Quelle für
+// "was wartet auf Freigabe". compare.files stimmt nicht in allen Cherry-
+// Pick-Szenarien (z.B. file auf main per Cherry-Pick + auf staging
+// gelöscht: GitHub's compare zeigt's gar nicht).
+async function computePending() {
+  const [compare, mainBlobs, stagingBlobs] = await Promise.all([
+    gh(`/repos/${GH_OWNER}/${GH_REPO}/compare/${PROD}...${STAGING}`),
+    fetchBlobMap(PROD),
+    fetchBlobMap(STAGING),
+  ]);
+
+  // Patches/Counts aus compare.files, falls verfügbar
+  const compareByName = new Map(
+    (compare.files || []).map((f) => [f.filename, f]),
+  );
+
+  const allPaths = new Set([...mainBlobs.keys(), ...stagingBlobs.keys()]);
+  const pending = [];
+  for (const path of allPaths) {
+    const onMain = mainBlobs.get(path);
+    const onStaging = stagingBlobs.get(path);
+    if (onMain === onStaging) continue;
+
+    let status;
+    if (!onMain) status = "added";
+    else if (!onStaging) status = "removed";
+    else status = "modified";
+
+    const fromCompare = compareByName.get(path);
+    pending.push({
+      filename: path,
+      status,
+      // Bei "removed" wollen wir die alte main-SHA für die Anzeige; das Merge
+      // setzt sha:null (siehe /merge-Handler).
+      sha: onStaging || onMain,
+      additions: fromCompare?.additions ?? 0,
+      deletions: fromCompare?.deletions ?? 0,
+      patch: fromCompare?.patch || null,
+      previous_filename: fromCompare?.previous_filename,
+    });
+  }
+  return pending;
+}
+
 app.get("/", async (req, res) => {
   try {
-    const [compare, mainBlobs, stagingBlobs] = await Promise.all([
-      gh(`/repos/${GH_OWNER}/${GH_REPO}/compare/${PROD}...${STAGING}`),
-      fetchBlobMap(PROD),
-      fetchBlobMap(STAGING),
-    ]);
-
-    // Cherry-Pick-Geister rausfiltern: behalten, wenn Blob-SHA wirklich abweicht
-    const trulyPending = (compare.files || []).filter(
-      (f) => mainBlobs.get(f.filename) !== stagingBlobs.get(f.filename),
-    );
+    const pending = await computePending();
 
     // Pro Datei: letzten Commit + Titel parallel holen
     const enriched = await Promise.all(
-      trulyPending.map(async (f) => {
+      pending.map(async (f) => {
         const [last, title] = await Promise.all([
           fetchLastCommitForFile(f.filename),
           fetchFileTitle(f.filename, f.status),
@@ -173,12 +208,9 @@ app.post("/merge", async (req, res) => {
         ));
     }
 
-    const compare = await gh(
-      `/repos/${GH_OWNER}/${GH_REPO}/compare/${PROD}...${STAGING}`,
-    );
-    const filesByPath = new Map(
-      (compare.files || []).map((f) => [f.filename, f]),
-    );
+    // Pending-Set über Tree-Diff aufbauen (siehe computePending in GET /).
+    const pending = await computePending();
+    const filesByPath = new Map(pending.map((f) => [f.filename, f]));
 
     // Tree-Update vorbereiten
     const treeOps = [];
