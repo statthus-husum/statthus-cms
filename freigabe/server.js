@@ -56,14 +56,38 @@ app.use(
 
 app.get("/healthz", (req, res) => res.send("ok"));
 
+// Map: path -> blob-SHA für einen Branch (nur Blobs, nicht Trees).
+async function fetchBlobMap(branch) {
+  const ref = await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/refs/heads/${branch}`);
+  const commit = await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/commits/${ref.object.sha}`);
+  const tree = await gh(`/repos/${GH_OWNER}/${GH_REPO}/git/trees/${commit.tree.sha}?recursive=true`);
+  const map = new Map();
+  for (const entry of tree.tree || []) {
+    if (entry.type === "blob") map.set(entry.path, entry.sha);
+  }
+  return map;
+}
+
 app.get("/", async (req, res) => {
   try {
-    const compare = await gh(
-      `/repos/${GH_OWNER}/${GH_REPO}/compare/${PROD}...${STAGING}`,
-    );
+    // 1. Compare API (für Commits + Patches + Status-Hinweise)
+    // 2. Tree-basierte Echt-Diff-Prüfung (filtert Cherry-Pick-Geister raus)
+    const [compare, mainBlobs, stagingBlobs] = await Promise.all([
+      gh(`/repos/${GH_OWNER}/${GH_REPO}/compare/${PROD}...${STAGING}`),
+      fetchBlobMap(PROD),
+      fetchBlobMap(STAGING),
+    ]);
+
+    // Aus compare.files nur die behalten, deren Blob-SHA auf main !== staging
+    const trulyPending = (compare.files || []).filter((f) => {
+      const onMain = mainBlobs.get(f.filename);
+      const onStaging = stagingBlobs.get(f.filename);
+      return onMain !== onStaging;
+    });
+
     res
       .set("Content-Type", "text/html; charset=utf-8")
-      .send(renderDashboard(compare));
+      .send(renderDashboard({ ...compare, files: trulyPending }));
   } catch (err) {
     res.status(500).send(errorPage(err.message));
   }
