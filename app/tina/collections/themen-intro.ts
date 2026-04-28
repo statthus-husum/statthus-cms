@@ -1,30 +1,27 @@
 import type { Collection } from "tinacms";
 
-// Themen-Intros sind die zwei _index.md-Dateien der Filterseiten:
-//   content/german/themen/wie-wir-leben/_index.md
-//   content/german/themen/wir-im-quartier/_index.md
+// Section-Einleitungen: alle _index.md Dateien unterhalb content/german/.
+// Das umfasst Hugo's Section-Landing-Pages für event, news, people, projekt
+// und die Themen-Filterseiten (themen/wie-wir-leben, themen/wir-im-quartier).
 //
-// Hugo erwartet die Subdir/_index.md-Struktur. Tina's `match`-Pattern lässt uns
-// die zwei spezifischen Dateien als gemeinsame Collection adressieren.
+// `match.include: "**/_index"` greift jede Tiefe — flache Sections wie
+// event/_index.md und verschachtelte wie themen/wie-wir-leben/_index.md.
 //
-// `allowedActions: create=false, delete=false` — Editoren dürfen nur die
-// existierenden zwei pflegen, keine neuen Themen erfinden (sonst landen sie
-// in der Hugo-Taxonomie aber haben keinen Filter-Backlink).
+// `allowedActions: create=false, delete=false` — Sections sind durch die
+// Hugo-Verzeichnisstruktur fest vorgegeben. Über die CMS-UI neue
+// _index.md anzulegen würde nur eine Datei ohne passendes Verzeichnis-
+// Konzept produzieren.
 export const ThemenIntroCollection: Collection = {
-  name: "themen_intro",
-  label: "Themen-Intros",
-  path: "content/german/themen",
+  name: "section_intro",
+  label: "Sektion-Einleitungen",
+  path: "content/german",
   format: "md",
-  match: {
-    include: "*/_index",
-  },
+  match: { include: "**/_index" },
   ui: {
     allowedActions: {
       create: false,
       delete: false,
     },
-    // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
-    //   router: ({ document }) => `https://statthus-husum.de/themen/${document._sys.breadcrumbs[0]}/`,
   },
   fields: [
     {
@@ -38,7 +35,6 @@ export const ThemenIntroCollection: Collection = {
       type: "string",
       name: "description",
       label: "Kurzbeschreibung",
-      required: true,
     },
     {
       type: "string",

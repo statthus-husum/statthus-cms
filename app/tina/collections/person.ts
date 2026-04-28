@@ -5,6 +5,7 @@ export const PersonCollection: Collection = {
   label: "Bewohner:innen",
   path: "content/german/people",
   format: "md",
+  match: { exclude: "_index" },
   ui: {
     // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
     //   router: ({ document }) => `https://statthus-husum.de/people/${document._sys.filename}/`,

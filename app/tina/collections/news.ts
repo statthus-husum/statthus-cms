@@ -14,6 +14,7 @@ export const NewsCollection: Collection = {
   label: "News-Beiträge",
   path: "content/german/news",
   format: "md",
+  match: { exclude: "_index" },
   ui: {
     // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
     //   router: ({ document }) => `https://statthus-husum.de/news/${document._sys.filename}/`,

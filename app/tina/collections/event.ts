@@ -14,6 +14,7 @@ export const EventCollection: Collection = {
   label: "Veranstaltungen",
   path: "content/german/event",
   format: "md",
+  match: { exclude: "_index" },
   ui: {
     // router auskommentiert: würde Tina dazu bringen, /event/<slug>/ zu öffnen,
     // aber das ist eine Hugo-URL, nicht der CMS-Server. Wieder aktivieren mit
