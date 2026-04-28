@@ -104,19 +104,75 @@ const escape = (s) =>
     (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" })[c],
   );
 
+const STATUS_LABELS = {
+  added: "neu",
+  removed: "gelöscht",
+  modified: "geändert",
+  renamed: "umbenannt",
+  copied: "kopiert",
+  changed: "verändert",
+  unchanged: "unverändert",
+};
+
 const commonStyle = () => `<style>
-body{font-family:system-ui,-apple-system,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#222}
+body{font-family:system-ui,-apple-system,sans-serif;max-width:56rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#222}
 h1{margin-bottom:.5rem}
 .status{padding:.75rem 1rem;border-radius:.5rem;background:#eef;margin:1rem 0;border-left:4px solid #69c}
 .status.empty{background:#efe;border-left-color:#5a5}
 .btn{display:inline-block;padding:.75rem 1.5rem;background:#16a34a;color:#fff;text-decoration:none;border:0;border-radius:.5rem;font-size:1rem;cursor:pointer;font-weight:600}
 .btn:hover{background:#15803d}
-ul{padding-left:1.25rem}
-li{margin-bottom:.5rem}
+ul.commit-list{padding-left:1.25rem}
+ul.commit-list li{margin-bottom:.5rem}
+ul.file-list{list-style:none;padding:0}
+ul.file-list>li{margin-bottom:.25rem;border:1px solid #e5e7eb;border-radius:.4rem;background:#fff}
+ul.file-list>li>details>summary{padding:.6rem .9rem;cursor:pointer;font-size:.95rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+ul.file-list>li>details>summary:hover{background:#f9fafb}
+ul.file-list>li>details[open]>summary{border-bottom:1px solid #e5e7eb;background:#f9fafb}
+.tag{font-size:.7rem;padding:.1rem .4rem;border-radius:.3rem;background:#e5e7eb;color:#374151;text-transform:uppercase;letter-spacing:.05em}
+.tag.added{background:#d1fadf;color:#054f31}
+.tag.removed{background:#fee2e2;color:#7f1d1d}
+.tag.modified{background:#dbeafe;color:#1e3a8a}
+.tag.renamed{background:#fef3c7;color:#78350f}
+.delta{font-size:.75rem;color:#6b7280}
+.delta .add{color:#16a34a}
+.delta .del{color:#dc2626}
 code{background:#f4f4f4;padding:.1rem .3rem;border-radius:.2rem;font-size:.9em}
+.diff{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;background:#f6f8fa;padding:0;margin:0;white-space:pre;overflow-x:auto;line-height:1.45}
+.diff>div{padding:0 .9rem}
+.diff .add{background:#dcfce7;color:#14532d}
+.diff .del{background:#fee2e2;color:#7f1d1d}
+.diff .hunk{background:#dbeafe;color:#1e3a8a;font-weight:600}
+.diff .meta{color:#6b7280;font-style:italic}
 small{color:#666}
 .diff-summary{font-size:.85em;color:#666}
 </style>`;
+
+function renderPatch(patch) {
+  if (!patch) return '<div class="diff"><div class="meta">(Binärdatei oder kein Diff verfügbar)</div></div>';
+  const lines = patch.split("\n").map((line) => {
+    if (line.startsWith("@@")) return `<div class="hunk">${escape(line)}</div>`;
+    if (line.startsWith("+++") || line.startsWith("---")) return `<div class="meta">${escape(line)}</div>`;
+    if (line.startsWith("+")) return `<div class="add">${escape(line)}</div>`;
+    if (line.startsWith("-")) return `<div class="del">${escape(line)}</div>`;
+    return `<div>${escape(line)}</div>`;
+  });
+  return `<pre class="diff">${lines.join("")}</pre>`;
+}
+
+function renderFileItem(f) {
+  const status = f.status || "modified";
+  const label = STATUS_LABELS[status] || status;
+  return `<li>
+  <details>
+    <summary>
+      <span class="tag ${escape(status)}">${escape(label)}</span>
+      <code>${escape(f.filename)}</code>
+      <span class="delta"><span class="add">+${f.additions || 0}</span> / <span class="del">−${f.deletions || 0}</span></span>
+    </summary>
+    ${renderPatch(f.patch)}
+  </details>
+</li>`;
+}
 
 function renderDashboard(compare) {
   const commits = compare?.commits || [];
@@ -137,7 +193,7 @@ ${ahead === 0
 
 ${ahead > 0 ? `
 <h2>Commits</h2>
-<ul>
+<ul class="commit-list">
 ${commits.map((c) => `<li>
   <strong>${escape(c.commit.author.name)}</strong>: ${escape(c.commit.message.split("\n")[0])}
   <br><small>${new Date(c.commit.author.date).toLocaleString("de-DE")}</small>
@@ -145,11 +201,9 @@ ${commits.map((c) => `<li>
 </ul>
 
 <h2>Geänderte Dateien <span class="diff-summary">(${files.length})</span></h2>
-<ul>
-${files.map((f) => `<li>
-  <code>${escape(f.filename)}</code>
-  <span class="diff-summary">— ${escape(f.status)}, +${f.additions}/-${f.deletions}</span>
-</li>`).join("")}
+<p><small>Klick auf eine Datei zeigt den Diff.</small></p>
+<ul class="file-list">
+${files.map(renderFileItem).join("")}
 </ul>
 
 <form method="POST" action="${BASE}/merge" onsubmit="return confirm('Wirklich freigeben? Die Änderungen erscheinen nach 1–2 Min auf der Live-Site.')">
