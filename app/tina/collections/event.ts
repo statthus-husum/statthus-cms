@@ -15,7 +15,10 @@ export const EventCollection: Collection = {
   path: "content/german/event",
   format: "md",
   ui: {
-    router: ({ document }) => `/event/${document._sys.filename}/`,
+    // router auskommentiert: würde Tina dazu bringen, /event/<slug>/ zu öffnen,
+    // aber das ist eine Hugo-URL, nicht der CMS-Server. Wieder aktivieren mit
+    // absoluter URL, sobald die Hugo-Site auf https://statthus-husum.de live ist:
+    //   router: ({ document }) => `https://statthus-husum.de/event/${document._sys.filename}/`,
     filename: {
       slugify: (values) =>
         (values?.title || "")

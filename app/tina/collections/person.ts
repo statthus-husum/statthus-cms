@@ -6,7 +6,8 @@ export const PersonCollection: Collection = {
   path: "content/german/people",
   format: "md",
   ui: {
-    router: ({ document }) => `/people/${document._sys.filename}/`,
+    // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
+    //   router: ({ document }) => `https://statthus-husum.de/people/${document._sys.filename}/`,
   },
   fields: [
     {

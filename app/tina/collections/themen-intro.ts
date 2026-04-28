@@ -23,8 +23,8 @@ export const ThemenIntroCollection: Collection = {
       create: false,
       delete: false,
     },
-    router: ({ document }) =>
-      `/themen/${document._sys.breadcrumbs[0]}/`,
+    // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
+    //   router: ({ document }) => `https://statthus-husum.de/themen/${document._sys.breadcrumbs[0]}/`,
   },
   fields: [
     {

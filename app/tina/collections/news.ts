@@ -15,7 +15,8 @@ export const NewsCollection: Collection = {
   path: "content/german/news",
   format: "md",
   ui: {
-    router: ({ document }) => `/news/${document._sys.filename}/`,
+    // router auskommentiert — siehe event.ts. Wieder aktivieren mit:
+    //   router: ({ document }) => `https://statthus-husum.de/news/${document._sys.filename}/`,
     filename: {
       slugify: (values) =>
         (values?.title || "")
