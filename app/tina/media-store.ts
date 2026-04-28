@@ -14,6 +14,13 @@ import type {
 export default class GitHubMediaStore {
   accept = "image/*";
 
+  // Tinas ImageField ruft store.parse(media) auf um aus dem Media-Objekt
+  // den String-Wert zu extrahieren, der ins Frontmatter geschrieben wird.
+  // Ohne diese Methode landet das ganze Objekt im Feld → React Error #31.
+  parse(media: Media): string {
+    return media?.src || "";
+  }
+
   async persist(files: MediaUploadOptions[]): Promise<Media[]> {
     const out: Media[] = [];
     for (const f of files) {
