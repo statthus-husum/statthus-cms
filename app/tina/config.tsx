@@ -22,10 +22,13 @@ export default defineConfig({
     outputFolder: "admin",
   },
 
+  // Custom Media Store: lädt unsere GitHubMediaStore-Klasse, die Bilder
+  // direkt nach static/images/ im Hugo-Repo committet (siehe app/tina/
+  // media-store.ts und pages/api/media/*).
   media: {
-    tina: {
-      mediaRoot: "static-images",
-      publicFolder: "content/german",
+    loadCustomStore: async () => {
+      const pack = await import("./media-store");
+      return pack.default;
     },
   },
 

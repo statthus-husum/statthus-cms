@@ -23,6 +23,7 @@
   "dependencies": {
     "@svgr/webpack": "^8.1.0",
     "@tinacms/cli": "^1.12.6",
+    "formidable": "^3.5.2",
     "@tinacms/datalayer": "^1.4.3",
     "mongodb-level": "0.0.4",
     "next": "14.2.35",
