@@ -25,7 +25,7 @@ export default async function handler(
   if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
 
   const path = String(req.query.path || "");
-  if (!path.startsWith(MEDIA_DIR + "/")) {
+  if (!path.startsWith(MEDIA_DIR + "/") || path.includes("..")) {
     return res.status(400).json({ error: "invalid path" });
   }
 

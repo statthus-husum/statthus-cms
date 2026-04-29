@@ -1,7 +1,9 @@
 // Upload-Endpunkt für den Tina-Media-Manager.
 // - Auth: NextAuth-Session muss vorhanden sein (Tina-User eingeloggt)
-// - Speichert nach assets/images/<filename> im konfigurierten GITHUB_BRANCH
-//   (Hugo-Theme rendert Bilder über die assets/-Pipeline, nicht aus static/)
+// - Speichert standardmäßig nach assets/images/<filename> — wenn Tina
+//   einen Unterordner als directory mitschickt (z.B. assets/images/post),
+//   landen die Dateien dort. Hugo rendert Bilder via resources.Get aus
+//   dem assets/-Mount.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
@@ -24,6 +26,18 @@ function isAuthed(req: NextApiRequest) {
     cookies["next-auth.session-token"] ||
       cookies["__Secure-next-auth.session-token"],
   );
+}
+
+// Stellt sicher, dass das Upload-Verzeichnis innerhalb von MEDIA_DIR liegt.
+// Tina darf Unterordner adressieren (z.B. assets/images/post), aber nicht
+// nach assets/scss/, content/, oder mit ../-Traversal ausbrechen.
+function safeMediaDir(raw: string): string | null {
+  const trimmed = (raw || "").trim().replace(/^\/+|\/+$/g, "");
+  if (!trimmed) return MEDIA_DIR;
+  if (trimmed.includes("..")) return null;
+  if (trimmed === MEDIA_DIR) return trimmed;
+  if (trimmed.startsWith(MEDIA_DIR + "/")) return trimmed;
+  return null;
 }
 
 function safeName(name: string): string {
@@ -49,9 +63,17 @@ export default async function handler(
 
   try {
     const form = formidable({ maxFileSize: 20 * 1024 * 1024 });
-    const [, files] = await form.parse(req);
+    const [fields, files] = await form.parse(req);
     const uploaded = files.file?.[0];
     if (!uploaded) return res.status(400).json({ error: "no file" });
+
+    const requestedDir = Array.isArray(fields.directory)
+      ? fields.directory[0]
+      : (fields.directory as string | undefined);
+    const targetDir = safeMediaDir(requestedDir || "");
+    if (!targetDir) {
+      return res.status(400).json({ error: "invalid directory" });
+    }
 
     const original = uploaded.originalFilename || "upload";
     let filename = safeName(original);
@@ -61,7 +83,7 @@ export default async function handler(
     const buf = await readFile(uploaded.filepath);
     const base64 = buf.toString("base64");
 
-    const path = `${MEDIA_DIR}/${filename}`;
+    const path = `${targetDir}/${filename}`;
 
     // Falls schon vorhanden: SHA holen, sonst null
     let sha: string | undefined;
@@ -101,11 +123,11 @@ export default async function handler(
     // Frontmatter-Konvention im statthus-website-Repo: relativer Pfad ohne
     // führenden Slash, der vom Theme über resources.Get aus assets/ aufgelöst
     // wird — z.B. "images/post/post-3.jpg".
-    const publicUrl = `images/${filename}`;
+    const publicUrl = path.startsWith("assets/") ? path.slice("assets/".length) : path;
     return res.json({
       id: path,
       filename,
-      directory: MEDIA_DIR,
+      directory: targetDir,
       src: publicUrl,
     });
   } catch (err: any) {

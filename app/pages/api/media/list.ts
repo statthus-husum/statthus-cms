@@ -1,4 +1,6 @@
-// Listet alle Bilder unter assets/images/ vom konfigurierten Branch.
+// Listet Bilder + Unterordner unter assets/images/ vom konfigurierten Branch.
+// Tina ruft diesen Endpunkt auch beim Klick auf einen Ordner auf — dann
+// kommt der Pfad als ?directory=assets/images/<unterordner> rein.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -16,6 +18,22 @@ function isAuthed(req: NextApiRequest) {
   );
 }
 
+// Stellt sicher, dass das angefragte Verzeichnis innerhalb von MEDIA_DIR
+// liegt — verhindert ein Auflisten anderer Repo-Bereiche via gefälschtem
+// ?directory-Parameter.
+function safeMediaDir(raw: string): string | null {
+  const trimmed = (raw || "").trim().replace(/^\/+|\/+$/g, "");
+  if (!trimmed) return MEDIA_DIR;
+  if (trimmed.includes("..")) return null;
+  if (trimmed === MEDIA_DIR) return trimmed;
+  if (trimmed.startsWith(MEDIA_DIR + "/")) return trimmed;
+  return null;
+}
+
+function relFromAssets(path: string): string {
+  return path.startsWith("assets/") ? path.slice("assets/".length) : path;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -23,14 +41,18 @@ export default async function handler(
   if (!isAuthed(req)) return res.status(401).json({ error: "Not authenticated" });
   if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
 
+  const directory = safeMediaDir(String(req.query.directory || ""));
+  if (!directory) {
+    return res.status(400).json({ error: "invalid directory" });
+  }
+
   try {
     const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(MEDIA_DIR)}?ref=${BRANCH}`,
+      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(directory)}?ref=${BRANCH}`,
       { headers: { Authorization: `Bearer ${TOKEN}` } },
     );
 
     if (ghRes.status === 404) {
-      // Verzeichnis existiert noch nicht — leer zurück
       return res.json({ items: [], totalCount: 0, offset: 0, limit: 0 });
     }
     if (!ghRes.ok) {
@@ -39,17 +61,31 @@ export default async function handler(
     }
 
     const contents = await ghRes.json();
-    const files = Array.isArray(contents) ? contents : [];
+    const entries = Array.isArray(contents) ? contents : [];
 
-    const items = files
-      .filter((f: any) => f.type === "file")
-      .map((f: any) => {
-        const src = `images/${f.name}`;
+    // Ordner zuerst, dann Dateien — innerhalb der Gruppen alphabetisch.
+    entries.sort((a: any, b: any) => {
+      if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+      return a.name.localeCompare(b.name, "de");
+    });
+
+    const items = entries
+      .filter((e: any) => e.type === "file" || e.type === "dir")
+      .map((e: any) => {
+        if (e.type === "dir") {
+          return {
+            type: "dir",
+            id: e.path,
+            filename: e.name,
+            directory,
+          };
+        }
+        const src = relFromAssets(e.path);
         return {
           type: "file",
-          id: f.path,
-          filename: f.name,
-          directory: MEDIA_DIR,
+          id: e.path,
+          filename: e.name,
+          directory,
           src,
           thumbnails: {
             "75x75": src,
