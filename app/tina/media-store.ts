@@ -1,9 +1,12 @@
 // Custom Media Store — committet Bilder direkt ins Hugo-Repo unter
 // assets/images/. Das Hugo-Theme bindet Bilder über die assets/-Pipeline
-// ein (resources.Get), nicht aus static/, daher müssen Uploads dorthin.
-// In die Frontmatter wird ein relativer Pfad ohne führenden Slash
-// geschrieben — z.B. "images/foo.jpg" — passend zur bestehenden
-// Repo-Konvention.
+// ein (resources.Get), daher müssen Uploads dorthin.
+//
+// Frontmatter-Konvention: relativer Pfad ohne führenden Slash, z.B.
+// "images/foo.jpg" — so wie es das Theme aus assets/ aufzulösen erwartet.
+// Damit Tina im Admin trotzdem eine Vorschau rendern kann (Tina baut
+// Image-URLs als origin+value zusammen), liefern wir für die Preview
+// eine vollständige raw.githubusercontent-URL via previewSrc().
 //
 // Auf der Backend-Seite läuft das über /api/media/* in pages/api/media/.
 
@@ -14,14 +17,35 @@ import type {
   MediaUploadOptions,
 } from "tinacms";
 
+const RAW_BASE =
+  process.env.NEXT_PUBLIC_GITHUB_RAW_BASE ||
+  "https://raw.githubusercontent.com/statthus-husum/statthus-website/staging";
+
+function toRawUrl(value: string): string {
+  if (!value) return "";
+  if (/^https?:\/\//.test(value)) return value;
+  const relative = value.replace(/^\/+/, "");
+  return `${RAW_BASE}/assets/${relative}`;
+}
+
 export default class GitHubMediaStore {
   accept = "image/*";
 
-  // Tinas ImageField ruft store.parse(media) auf um aus dem Media-Objekt
-  // den String-Wert zu extrahieren, der ins Frontmatter geschrieben wird.
-  // Ohne diese Methode landet das ganze Objekt im Feld → React Error #31.
+  // Was wird ins Frontmatter geschrieben? Wir leiten den Wert aus media.id
+  // ab (z.B. "assets/images/franz.png" → "images/franz.png"), damit das
+  // Hugo-Theme den Pfad über resources.Get auflösen kann.
   parse(media: Media): string {
+    const id = media?.id || "";
+    if (id.startsWith("assets/")) return id.slice("assets/".length);
     return media?.src || "";
+  }
+
+  // Tina ruft previewSrc(value) für vorhandene Bilder im Feld auf.
+  // value ist der Frontmatter-String (ohne Slash, ohne assets/-Prefix) —
+  // wir mappen ihn auf raw.githubusercontent, sodass das Admin-UI die
+  // Bilder direkt anzeigen kann.
+  previewSrc(value: string): string {
+    return toRawUrl(value);
   }
 
   async persist(files: MediaUploadOptions[]): Promise<Media[]> {
@@ -30,7 +54,7 @@ export default class GitHubMediaStore {
       const fd = new FormData();
       fd.append("file", f.file);
       // Tina übergibt das Verzeichnis relativ zu publicFolder — wir
-      // ignorieren das und setzen static/images selbst.
+      // ignorieren das und setzen assets/images selbst.
       fd.append("directory", f.directory || "");
 
       const res = await fetch("/api/media/upload", {
@@ -42,16 +66,17 @@ export default class GitHubMediaStore {
         throw new Error(`Upload fehlgeschlagen: ${res.status} ${txt}`);
       }
       const result = await res.json();
+      const previewUrl = toRawUrl(result.src);
       out.push({
         type: "file",
         id: result.id,
         filename: result.filename,
         directory: result.directory,
-        src: result.src,
+        src: previewUrl,
         thumbnails: {
-          "75x75": result.src,
-          "400x400": result.src,
-          "1000x1000": result.src,
+          "75x75": previewUrl,
+          "400x400": previewUrl,
+          "1000x1000": previewUrl,
         },
       });
     }
@@ -68,8 +93,20 @@ export default class GitHubMediaStore {
       throw new Error(`List fehlgeschlagen: ${res.status}`);
     }
     const data = await res.json();
+    const items = (data.items || []).map((it: Media) => {
+      const previewUrl = toRawUrl(it.src);
+      return {
+        ...it,
+        src: previewUrl,
+        thumbnails: {
+          "75x75": previewUrl,
+          "400x400": previewUrl,
+          "1000x1000": previewUrl,
+        },
+      };
+    });
     return {
-      items: data.items,
+      items,
       nextOffset: data.nextOffset,
     };
   }
