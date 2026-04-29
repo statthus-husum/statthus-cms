@@ -76,53 +76,21 @@
 })();
 
 /*
- * "+ Ordner"-Button für den Media-Manager.
+ * Folder-Create-Hook für den Media-Manager.
  *
- * Tinas Media-Manager hat keine eigene Folder-Create-UI. Wir injizieren
- * einen kleinen Button, der nach einem Ordnernamen fragt und ihn über
- * /api/media/mkdir unter assets/images/uploads/ anlegt.
+ * Tinas Media-Manager hat in der Standalone-Ansicht (über das Menü) einen
+ * eigenen "New Folder"-Button. Mit unserer GitHubMediaStore-Implementierung
+ * funktioniert Tinas Default-Folder-Logik nicht — also fangen wir den
+ * Klick ab und delegieren auf unsere /api/media/mkdir-Route.
+ *
+ * Im Popup-Picker (beim Foto-Auswählen aus einem Image-Field) gibt es den
+ * Button nicht — dort injizieren wir als Fallback einen "+ Ordner"-Button.
  */
 (function () {
   var BTN_CLASS = "statthus-mkdir-btn";
+  var FOLDER_LABELS = /^(new folder|add folder|create folder|neuer ordner|ordner anlegen|ordner erstellen)$/i;
 
-  // Sucht ein Heading, das nach Tinas Media-UI riecht. Der Popup-Variant
-  // hat meist "Media Manager", die Menü-Variante nur "Media" / "Medien" /
-  // "Medien-Manager". Wir matchen jeden Heading, der eines der Wörter
-  // enthält — Heuristik, aber stabil genug für unsere Tweaks.
-  function findHeader() {
-    var headings = document.querySelectorAll("h1, h2, h3, h4, h5");
-    for (var i = 0; i < headings.length; i++) {
-      var text = (headings[i].textContent || "").trim().toLowerCase();
-      if (!text) continue;
-      if (/(media|medien)/.test(text)) return headings[i];
-    }
-    return null;
-  }
-
-  function makeBtn() {
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = BTN_CLASS;
-    btn.textContent = "+ Ordner";
-    btn.style.cssText = [
-      "margin-left:.75rem",
-      "padding:.4rem .8rem",
-      "background:#0f766e",
-      "color:#fff",
-      "border:none",
-      "border-radius:.25rem",
-      "cursor:pointer",
-      "font-size:.85rem",
-      "font-weight:500",
-      "vertical-align:middle",
-    ].join(";");
-    btn.addEventListener("click", onClick);
-    return btn;
-  }
-
-  async function onClick(ev) {
-    ev.preventDefault();
-    ev.stopPropagation();
+  async function runMkdirFlow() {
     var name = window.prompt(
       "Neuer Ordner-Name (Unterordner mit / erlaubt, z.B. veranstaltungen/2026):",
     );
@@ -152,15 +120,100 @@
     }
   }
 
-  function tick() {
-    var header = findHeader();
-    if (!header) return;
-    if (header.querySelector("." + BTN_CLASS)) return;
-    header.appendChild(makeBtn());
+  // Klick-Interceptor: kapert jeden Klick auf einen Button/Anchor, dessen
+  // sichtbarer Text wie "New Folder" / "Neuer Ordner" / etc. aussieht —
+  // unabhängig davon, ob Tina ihn selbst gerendert hat oder wir.
+  // Capture-Phase, damit wir vor Tinas eigenen Handlern dran sind.
+  document.addEventListener(
+    "click",
+    function (ev) {
+      var target = ev.target;
+      while (target && target !== document) {
+        var tag = target.tagName;
+        if (tag === "BUTTON" || tag === "A") {
+          var text = (target.textContent || "").trim();
+          if (text && FOLDER_LABELS.test(text.toLowerCase())) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+            runMkdirFlow();
+            return;
+          }
+        }
+        target = target.parentNode;
+      }
+    },
+    true,
+  );
+
+  // Fallback-Injection für den Popup-Picker, wo Tina keinen eigenen
+  // Folder-Button rendert. Wir hängen ihn an den "Media Manager"-Heading
+  // (oder den Upload-Button, wenn der Heading fehlt).
+  function findExistingFolderBtn() {
+    var els = document.querySelectorAll("button, a");
+    for (var i = 0; i < els.length; i++) {
+      var t = (els[i].textContent || "").trim().toLowerCase();
+      if (t && FOLDER_LABELS.test(t)) return els[i];
+    }
+    return null;
   }
 
-  // Tina rendert den Media-Manager als Modal — wir warten via Observer
-  // bis das Header-Element auftaucht.
+  function findAnchor() {
+    var headings = document.querySelectorAll("h1, h2, h3, h4, h5");
+    for (var i = 0; i < headings.length; i++) {
+      var text = (headings[i].textContent || "").trim().toLowerCase();
+      if (text && /(media|medien)/.test(text)) {
+        return { el: headings[i], strategy: "child" };
+      }
+    }
+    var buttons = document.querySelectorAll("button");
+    for (var j = 0; j < buttons.length; j++) {
+      var btnText = (buttons[j].textContent || "").trim().toLowerCase();
+      if (btnText === "upload" || btnText === "hochladen") {
+        return { el: buttons[j], strategy: "sibling" };
+      }
+    }
+    return null;
+  }
+
+  function makeBtn() {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = BTN_CLASS;
+    btn.textContent = "+ Ordner";
+    btn.style.cssText = [
+      "margin-left:.75rem",
+      "padding:.4rem .8rem",
+      "background:#0f766e",
+      "color:#fff",
+      "border:none",
+      "border-radius:.25rem",
+      "cursor:pointer",
+      "font-size:.85rem",
+      "font-weight:500",
+      "vertical-align:middle",
+    ].join(";");
+    btn.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      runMkdirFlow();
+    });
+    return btn;
+  }
+
+  function tick() {
+    if (document.querySelector("." + BTN_CLASS)) return;
+    if (findExistingFolderBtn()) return; // Tina hat schon einen — kein Duplikat
+    var anchor = findAnchor();
+    if (!anchor) return;
+    var btn = makeBtn();
+    if (anchor.strategy === "sibling" && anchor.el.parentElement) {
+      anchor.el.parentElement.insertBefore(btn, anchor.el.nextSibling);
+    } else {
+      anchor.el.appendChild(btn);
+    }
+  }
+
   var pending = false;
   function schedule() {
     if (pending) return;
