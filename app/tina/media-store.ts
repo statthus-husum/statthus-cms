@@ -1,6 +1,9 @@
 // Custom Media Store — committet Bilder direkt ins Hugo-Repo unter
-// static/images/. Hugo serviert /static/* unter / (also wird die
-// referenzierte URL "/images/foo.jpg" automatisch aufgelöst).
+// assets/images/. Das Hugo-Theme bindet Bilder über die assets/-Pipeline
+// ein (resources.Get), nicht aus static/, daher müssen Uploads dorthin.
+// In die Frontmatter wird ein relativer Pfad ohne führenden Slash
+// geschrieben — z.B. "images/foo.jpg" — passend zur bestehenden
+// Repo-Konvention.
 //
 // Auf der Backend-Seite läuft das über /api/media/* in pages/api/media/.
 

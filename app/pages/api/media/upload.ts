@@ -1,6 +1,7 @@
 // Upload-Endpunkt für den Tina-Media-Manager.
 // - Auth: NextAuth-Session muss vorhanden sein (Tina-User eingeloggt)
-// - Speichert nach static/images/<filename> im konfigurierten GITHUB_BRANCH
+// - Speichert nach assets/images/<filename> im konfigurierten GITHUB_BRANCH
+//   (Hugo-Theme rendert Bilder über die assets/-Pipeline, nicht aus static/)
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
@@ -14,7 +15,7 @@ const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
 const REPO = process.env.GITHUB_REPO || "statthus-website";
 const BRANCH = process.env.GITHUB_BRANCH || "staging";
 const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "static/images";
+const MEDIA_DIR = "assets/images";
 
 function isAuthed(req: NextApiRequest) {
   // NextAuth setzt einen der beiden Cookie-Namen je nach Protokoll
@@ -97,8 +98,10 @@ export default async function handler(
         .json({ error: errBody.message || "GitHub upload failed" });
     }
 
-    // Hugo serviert static/* unter / — also URL ist /images/<filename>
-    const publicUrl = `/images/${filename}`;
+    // Frontmatter-Konvention im statthus-website-Repo: relativer Pfad ohne
+    // führenden Slash, der vom Theme über resources.Get aus assets/ aufgelöst
+    // wird — z.B. "images/post/post-3.jpg".
+    const publicUrl = `images/${filename}`;
     return res.json({
       id: path,
       filename,
