@@ -21,7 +21,7 @@ const RAW_BASE =
   process.env.NEXT_PUBLIC_GITHUB_RAW_BASE ||
   "https://raw.githubusercontent.com/statthus-husum/statthus-website/staging";
 
-function toRawUrl(value: string): string {
+function toRawUrl(value: string | undefined | null): string {
   if (!value) return "";
   if (/^https?:\/\//.test(value)) return value;
   const relative = value.replace(/^\/+/, "");
