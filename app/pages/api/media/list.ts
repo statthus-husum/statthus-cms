@@ -44,7 +44,7 @@ export default async function handler(
     const items = files
       .filter((f: any) => f.type === "file")
       .map((f: any) => {
-        const src = `/static/images/${f.name}`;
+        const src = `/images/${f.name}`;
         return {
           type: "file",
           id: f.path,

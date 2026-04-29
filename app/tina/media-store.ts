@@ -1,7 +1,6 @@
 // Custom Media Store — committet Bilder direkt ins Hugo-Repo unter
-// static/images/. Auf der publizierten Site sind die Bilder unter
-// /static/images/<filename> erreichbar — daher schreiben wir genau diesen
-// Pfad in die Frontmatter (siehe pages/api/media/upload.ts und list.ts).
+// static/images/. Hugo serviert /static/* unter / (also wird die
+// referenzierte URL "/images/foo.jpg" automatisch aufgelöst).
 //
 // Auf der Backend-Seite läuft das über /api/media/* in pages/api/media/.
 
