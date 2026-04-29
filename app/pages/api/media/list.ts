@@ -1,6 +1,8 @@
-// Listet Bilder + Unterordner unter assets/images/ vom konfigurierten Branch.
-// Tina ruft diesen Endpunkt auch beim Klick auf einen Ordner auf — dann
-// kommt der Pfad als ?directory=assets/images/<unterordner> rein.
+// Listet Bilder + Unterordner unter assets/images/uploads/ vom konfigurierten
+// Branch. Tina ruft diesen Endpunkt auch beim Klick auf einen Ordner auf —
+// dann kommt der Pfad als ?directory=assets/images/uploads/<sub> rein.
+// CMS-Uploads sind bewusst in einem eigenen Unterordner getrennt von den
+// Theme-Assets unter assets/images/.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -8,7 +10,7 @@ const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
 const REPO = process.env.GITHUB_REPO || "statthus-website";
 const BRANCH = process.env.GITHUB_BRANCH || "staging";
 const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images";
+const MEDIA_DIR = "assets/images/uploads";
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};

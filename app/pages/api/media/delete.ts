@@ -1,4 +1,4 @@
-// Löscht ein Bild aus assets/images/ vom konfigurierten Branch.
+// Löscht ein Bild aus assets/images/uploads/ vom konfigurierten Branch.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -6,7 +6,7 @@ const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
 const REPO = process.env.GITHUB_REPO || "statthus-website";
 const BRANCH = process.env.GITHUB_BRANCH || "staging";
 const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images";
+const MEDIA_DIR = "assets/images/uploads";
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};

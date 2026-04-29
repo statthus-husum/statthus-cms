@@ -1,9 +1,10 @@
 // Upload-Endpunkt für den Tina-Media-Manager.
 // - Auth: NextAuth-Session muss vorhanden sein (Tina-User eingeloggt)
-// - Speichert standardmäßig nach assets/images/<filename> — wenn Tina
-//   einen Unterordner als directory mitschickt (z.B. assets/images/post),
-//   landen die Dateien dort. Hugo rendert Bilder via resources.Get aus
-//   dem assets/-Mount.
+// - Speichert nach assets/images/uploads/ (oder einem Unterordner davon,
+//   wenn Tina das directory-Feld mitschickt). Wir trennen CMS-Uploads
+//   bewusst von den Theme-Assets unter assets/images/, damit der
+//   Media-Manager nur Editor-Inhalte zeigt.
+// - Hugo rendert Bilder via resources.Get aus dem assets/-Mount.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
@@ -17,7 +18,7 @@ const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
 const REPO = process.env.GITHUB_REPO || "statthus-website";
 const BRANCH = process.env.GITHUB_BRANCH || "staging";
 const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images";
+const MEDIA_DIR = "assets/images/uploads";
 
 function isAuthed(req: NextApiRequest) {
   // NextAuth setzt einen der beiden Cookie-Namen je nach Protokoll

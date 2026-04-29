@@ -74,3 +74,103 @@
     obs.disconnect();
   }, 60000);
 })();
+
+/*
+ * "+ Ordner"-Button für den Media-Manager.
+ *
+ * Tinas Media-Manager hat keine eigene Folder-Create-UI. Wir injizieren
+ * einen kleinen Button, der nach einem Ordnernamen fragt und ihn über
+ * /api/media/mkdir unter assets/images/uploads/ anlegt.
+ */
+(function () {
+  var BTN_CLASS = "statthus-mkdir-btn";
+
+  function findHeader() {
+    var headings = document.querySelectorAll("h1, h2, h3, h4, h5");
+    for (var i = 0; i < headings.length; i++) {
+      var text = (headings[i].textContent || "").toLowerCase();
+      if (text.indexOf("media manager") !== -1) return headings[i];
+    }
+    return null;
+  }
+
+  function makeBtn() {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = BTN_CLASS;
+    btn.textContent = "+ Ordner";
+    btn.style.cssText = [
+      "margin-left:.75rem",
+      "padding:.4rem .8rem",
+      "background:#0f766e",
+      "color:#fff",
+      "border:none",
+      "border-radius:.25rem",
+      "cursor:pointer",
+      "font-size:.85rem",
+      "font-weight:500",
+      "vertical-align:middle",
+    ].join(";");
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+
+  async function onClick(ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    var name = window.prompt(
+      "Neuer Ordner-Name (Unterordner mit / erlaubt, z.B. veranstaltungen/2026):",
+    );
+    if (!name) return;
+    try {
+      var res = await fetch("/api/media/mkdir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name }),
+        credentials: "same-origin",
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        window.alert("Anlegen fehlgeschlagen: " + (data.error || res.status));
+        return;
+      }
+      window.alert(
+        "Ordner angelegt: " +
+          data.directory +
+          (data.alreadyExists ? " (bestand schon)" : "") +
+          "\n\nMedia-Manager schließen und neu öffnen, damit er erscheint.",
+      );
+    } catch (err) {
+      window.alert("Fehler: " + (err && err.message));
+    }
+  }
+
+  function tick() {
+    var header = findHeader();
+    if (!header) return;
+    if (header.querySelector("." + BTN_CLASS)) return;
+    header.appendChild(makeBtn());
+  }
+
+  // Tina rendert den Media-Manager als Modal — wir warten via Observer
+  // bis das Header-Element auftaucht.
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    (window.requestAnimationFrame || setTimeout)(function () {
+      pending = false;
+      tick();
+    }, 16);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tick);
+  } else {
+    tick();
+  }
+  var obs = new MutationObserver(schedule);
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+})();
