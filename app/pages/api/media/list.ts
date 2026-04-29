@@ -20,16 +20,16 @@ function isAuthed(req: NextApiRequest) {
   );
 }
 
-// Stellt sicher, dass das angefragte Verzeichnis innerhalb von MEDIA_DIR
-// liegt — verhindert ein Auflisten anderer Repo-Bereiche via gefälschtem
-// ?directory-Parameter.
-function safeMediaDir(raw: string): string | null {
+// Normalisiert das angefragte Verzeichnis auf einen Pfad innerhalb von
+// MEDIA_DIR. Tina ruft List initial mit ihrem konfigurierten publicFolder
+// (z.B. "public") auf, das wir auf MEDIA_DIR mappen müssen — sonst
+// scheitert der erste Fetch beim Öffnen des Media-Managers.
+function safeMediaDir(raw: string): string {
   const trimmed = (raw || "").trim().replace(/^\/+|\/+$/g, "");
-  if (!trimmed) return MEDIA_DIR;
-  if (trimmed.includes("..")) return null;
+  if (!trimmed || trimmed.includes("..")) return MEDIA_DIR;
   if (trimmed === MEDIA_DIR) return trimmed;
   if (trimmed.startsWith(MEDIA_DIR + "/")) return trimmed;
-  return null;
+  return MEDIA_DIR;
 }
 
 function relFromAssets(path: string): string {
@@ -44,9 +44,6 @@ export default async function handler(
   if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
 
   const directory = safeMediaDir(String(req.query.directory || ""));
-  if (!directory) {
-    return res.status(400).json({ error: "invalid directory" });
-  }
 
   try {
     const ghRes = await fetch(

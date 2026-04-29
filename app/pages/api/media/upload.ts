@@ -29,16 +29,16 @@ function isAuthed(req: NextApiRequest) {
   );
 }
 
-// Stellt sicher, dass das Upload-Verzeichnis innerhalb von MEDIA_DIR liegt.
-// Tina darf Unterordner adressieren (z.B. assets/images/post), aber nicht
-// nach assets/scss/, content/, oder mit ../-Traversal ausbrechen.
-function safeMediaDir(raw: string): string | null {
+// Normalisiert das Upload-Verzeichnis auf einen Pfad innerhalb von MEDIA_DIR.
+// Tina sendet im Initial-State ihren publicFolder (z.B. "public") — den
+// mappen wir auf MEDIA_DIR, statt mit 400 abzulehnen. Echte Unterordner
+// unter MEDIA_DIR bleiben erhalten; ../-Traversal wird zurückgesetzt.
+function safeMediaDir(raw: string): string {
   const trimmed = (raw || "").trim().replace(/^\/+|\/+$/g, "");
-  if (!trimmed) return MEDIA_DIR;
-  if (trimmed.includes("..")) return null;
+  if (!trimmed || trimmed.includes("..")) return MEDIA_DIR;
   if (trimmed === MEDIA_DIR) return trimmed;
   if (trimmed.startsWith(MEDIA_DIR + "/")) return trimmed;
-  return null;
+  return MEDIA_DIR;
 }
 
 function safeName(name: string): string {
@@ -72,9 +72,6 @@ export default async function handler(
       ? fields.directory[0]
       : (fields.directory as string | undefined);
     const targetDir = safeMediaDir(requestedDir || "");
-    if (!targetDir) {
-      return res.status(400).json({ error: "invalid directory" });
-    }
 
     const original = uploaded.originalFilename || "upload";
     let filename = safeName(original);
