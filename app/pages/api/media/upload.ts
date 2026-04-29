@@ -97,8 +97,10 @@ export default async function handler(
         .json({ error: errBody.message || "GitHub upload failed" });
     }
 
-    // Hugo serviert static/* unter / — also URL ist /images/<filename>
-    const publicUrl = `/images/${filename}`;
+    // Auf der publizierten Site liegen die Bilder unter /static/images/ —
+    // Hugos default-Static-Mapping greift dort nicht, daher muss der Pfad
+    // in der Frontmatter den /static-Prefix mitführen.
+    const publicUrl = `/static/images/${filename}`;
     return res.json({
       id: path,
       filename,
