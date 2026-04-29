@@ -85,11 +85,16 @@
 (function () {
   var BTN_CLASS = "statthus-mkdir-btn";
 
+  // Sucht ein Heading, das nach Tinas Media-UI riecht. Der Popup-Variant
+  // hat meist "Media Manager", die Menü-Variante nur "Media" / "Medien" /
+  // "Medien-Manager". Wir matchen jeden Heading, der eines der Wörter
+  // enthält — Heuristik, aber stabil genug für unsere Tweaks.
   function findHeader() {
     var headings = document.querySelectorAll("h1, h2, h3, h4, h5");
     for (var i = 0; i < headings.length; i++) {
-      var text = (headings[i].textContent || "").toLowerCase();
-      if (text.indexOf("media manager") !== -1) return headings[i];
+      var text = (headings[i].textContent || "").trim().toLowerCase();
+      if (!text) continue;
+      if (/(media|medien)/.test(text)) return headings[i];
     }
     return null;
   }
