@@ -3,13 +3,27 @@ import Link from "next/link";
 type Tile = {
   href?: string;
   external?: boolean;
+  newTab?: boolean;
   title: string;
   description: string;
   badge?: string;
   disabled?: boolean;
 };
 
+// TODO: auf https://statthus-husum.de umstellen, sobald die Live-Domain
+// auf das produktive Deployment zeigt.
+const SITE_URL = "https://statthus-husum.github.io/statthus-website/";
+
 const tiles: Tile[] = [
+  {
+    href: SITE_URL,
+    external: true,
+    newTab: true,
+    title: "Website anzeigen",
+    description:
+      "Aktuell veröffentlichte Inhalte ansehen — wie sie für Besucher:innen aussehen.",
+    badge: "Vorab-URL",
+  },
   {
     href: "/admin/index.html",
     external: true,
@@ -91,7 +105,13 @@ function TileCard({ tile }: { tile: Tile }) {
   }
   if (tile.external) {
     return (
-      <a href={tile.href} className="block focus:outline-none">
+      <a
+        href={tile.href}
+        className="block focus:outline-none"
+        {...(tile.newTab
+          ? { target: "_blank", rel: "noreferrer noopener" }
+          : {})}
+      >
         {card}
       </a>
     );
