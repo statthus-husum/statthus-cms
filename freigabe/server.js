@@ -307,7 +307,7 @@ app.post("/merge", async (req, res) => {
 </details>
 <p class="cleanup-note">${escape(cleanup.message)}</p>
 <p>Die Site wird in 1–2 Minuten aktualisiert.</p>
-<p><a href="${BASE}/">Zurück zur Übersicht</a></p>
+<p><a href="/">Zurück zur Übersicht</a></p>
 </body></html>`);
   } catch (err) {
     res.status(500).send(errorPage(err.message));
@@ -397,6 +397,9 @@ const STATUS_LABELS = {
 
 const commonStyle = () => `<style>
 body{font-family:system-ui,-apple-system,sans-serif;max-width:56rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#222}
+.back-link{margin:0 0 .5rem;font-size:.9rem}
+.back-link a{color:#6b7280;text-decoration:none}
+.back-link a:hover{color:#222;text-decoration:underline}
 h1{margin-bottom:.5rem}
 .status{padding:.75rem 1rem;border-radius:.5rem;background:#eef;margin:1rem 0;border-left:4px solid #69c}
 .status.empty{background:#efe;border-left-color:#5a5}
@@ -563,6 +566,7 @@ function renderDashboard(data) {
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>staTThus Freigabe</title>${commonStyle()}</head>
 <body>
+<p class="back-link"><a href="/">← Übersicht</a></p>
 <h1>staTThus · Freigabe</h1>
 
 <div class="status ${count === 0 ? "empty" : ""}">
