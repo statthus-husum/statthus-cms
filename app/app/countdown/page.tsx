@@ -49,7 +49,7 @@ export default function Countdown() {
         {done ? "Heute ist es soweit" : "Bis zum Spatenstich"}
       </p>
 
-      <div className="flex flex-wrap items-end justify-center gap-3 sm:gap-5">
+      <div className="flex flex-wrap items-start justify-center gap-3 sm:gap-5">
         <Group label="Tage" value={parts?.days} digits={3} />
         <Separator />
         <Group label="Stunden" value={parts?.hours} digits={2} />
@@ -103,11 +103,17 @@ function Group({
   );
 }
 
+// Höhe matcht die Karten-Höhe pro Breakpoint, damit die zwei Punkte
+// vertikal mittig auf der Karten-Trennlinie sitzen — nicht zwischen
+// Karten und Labels.
 function Separator() {
   return (
-    <div className="hidden h-20 flex-col justify-center text-zinc-700 sm:flex">
-      <span className="text-3xl font-bold leading-none">·</span>
-      <span className="mt-1 text-3xl font-bold leading-none">·</span>
+    <div
+      aria-hidden
+      className="hidden h-[5rem] flex-col items-center justify-center text-zinc-600 sm:flex sm:h-[7rem] md:h-[8.5rem]"
+    >
+      <span className="block text-3xl font-bold leading-none">·</span>
+      <span className="mt-1.5 block text-3xl font-bold leading-none">·</span>
     </div>
   );
 }
