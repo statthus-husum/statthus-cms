@@ -42,10 +42,10 @@ export default function Countdown() {
   const done = parts?.done === true;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-12 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-6 text-center sm:py-12">
       <style>{flapCss}</style>
 
-      <p className="mb-8 text-xs uppercase tracking-[0.3em] text-zinc-500 sm:text-sm">
+      <p className="mb-5 text-xs uppercase tracking-[0.3em] text-zinc-500 sm:mb-8 sm:text-sm">
         {done ? "Heute ist es soweit" : "Bis zum Spatenstich"}
       </p>
 
@@ -59,7 +59,7 @@ export default function Countdown() {
         <Group label="Sekunden" value={parts?.seconds} digits={2} />
       </div>
 
-      <div className="mt-12 max-w-md">
+      <div className="mt-6 max-w-md sm:mt-12">
         <p className="text-base font-medium text-zinc-900 sm:text-lg">
           staTThus Neubau · Husum
         </p>
@@ -67,7 +67,7 @@ export default function Countdown() {
           Spatenstich am 18. Mai 2026 um 14:00 Uhr
         </p>
         {done && (
-          <p className="mt-8 text-sm uppercase tracking-[0.3em] text-amber-700">
+          <p className="mt-5 text-sm uppercase tracking-[0.3em] text-amber-700 sm:mt-8">
             Wir bauen.
           </p>
         )}
