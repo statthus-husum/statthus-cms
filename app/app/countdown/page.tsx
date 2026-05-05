@@ -42,10 +42,10 @@ export default function Countdown() {
   const done = parts?.done === true;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-zinc-900 to-black px-4 py-12 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-12 text-center">
       <style>{flapCss}</style>
 
-      <p className="mb-8 text-xs uppercase tracking-[0.3em] text-zinc-400 sm:text-sm">
+      <p className="mb-8 text-xs uppercase tracking-[0.3em] text-zinc-500 sm:text-sm">
         {done ? "Heute ist es soweit" : "Bis zum Spatenstich"}
       </p>
 
@@ -59,15 +59,15 @@ export default function Countdown() {
         <Group label="Sekunden" value={parts?.seconds} digits={2} />
       </div>
 
-      <div className="mt-12 max-w-md text-zinc-300">
-        <p className="text-base font-medium text-amber-50 sm:text-lg">
+      <div className="mt-12 max-w-md">
+        <p className="text-base font-medium text-zinc-900 sm:text-lg">
           staTThus Neubau · Husum
         </p>
-        <p className="mt-1 text-sm text-zinc-400 sm:text-base">
+        <p className="mt-1 text-sm text-zinc-600 sm:text-base">
           Spatenstich am 18. Mai 2026 um 14:00 Uhr
         </p>
         {done && (
-          <p className="mt-8 text-sm uppercase tracking-[0.3em] text-amber-200">
+          <p className="mt-8 text-sm uppercase tracking-[0.3em] text-amber-700">
             Wir bauen.
           </p>
         )}
@@ -96,7 +96,7 @@ function Group({
           <Flap key={i} digit={digit} />
         ))}
       </div>
-      <div className="mt-3 text-[0.65rem] uppercase tracking-[0.3em] text-zinc-500 sm:text-xs">
+      <div className="mt-3 text-[0.65rem] uppercase tracking-[0.3em] text-zinc-600 sm:text-xs">
         {label}
       </div>
     </div>
@@ -110,7 +110,7 @@ function Separator() {
   return (
     <div
       aria-hidden
-      className="hidden h-[5rem] flex-col items-center justify-center text-zinc-600 sm:flex sm:h-[7rem] md:h-[8.5rem]"
+      className="hidden h-[5rem] flex-col items-center justify-center text-zinc-400 sm:flex sm:h-[7rem] md:h-[8.5rem]"
     >
       <span className="block text-3xl font-bold leading-none">·</span>
       <span className="mt-1.5 block text-3xl font-bold leading-none">·</span>
@@ -174,6 +174,8 @@ const flapCss = `
   width:3.25rem;
   height:5rem;
   perspective:240px;
+  border-radius:.4rem;
+  box-shadow:0 10px 24px -10px rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.08);
 }
 @media(min-width:640px){.flap-card{width:4.5rem;height:7rem;perspective:300px}}
 @media(min-width:768px){.flap-card{width:5.5rem;height:8.5rem;perspective:360px}}
