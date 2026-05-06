@@ -20,6 +20,19 @@ if (!ADMIN_PASS || !GH_TOKEN) {
   process.exit(1);
 }
 
+// Pfade, die durch die Freigabe von staging nach main wandern dürfen.
+// Alles, was Editor:innen über Tina anfassen, lebt unter diesen Prefixen:
+//   - content/         redaktionelle Markdown-Dateien + content/users/
+//   - assets/images/uploads/   CMS-hochgeladene Bilder
+// Theme-Code, Layouts, Hugo-Config, package.json etc. bleiben damit
+// gegenüber der Freigabe unsichtbar — wenn jemand direkt auf main an
+// Theme/Code arbeitet, überschreibt eine Freigabe das nicht mehr.
+const EDITOR_PREFIXES = ["content/", "assets/images/uploads/"];
+
+function isEditorPath(path) {
+  return EDITOR_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 const gh = async (path, opts = {}) => {
   const res = await fetch(`https://api.github.com${path}`, {
     ...opts,
@@ -137,6 +150,11 @@ async function computePending() {
   const allPaths = new Set([...mainBlobs.keys(), ...stagingBlobs.keys()]);
   const pending = [];
   for (const path of allPaths) {
+    // Theme-/Code-/Config-Änderungen zwischen main und staging gehen
+    // niemanden in der Freigabe-UI etwas an — die Freigabe ist
+    // ausschließlich für redaktionelle Inhalte da.
+    if (!isEditorPath(path)) continue;
+
     const onMain = mainBlobs.get(path);
     const onStaging = stagingBlobs.get(path);
     if (onMain === onStaging) continue;
@@ -216,6 +234,9 @@ app.post("/merge", async (req, res) => {
     const treeOps = [];
     const includedPaths = [];
     for (const path of selected) {
+      // Defense-in-depth: ein Hand-POST darf keinen Theme-/Code-Pfad
+      // durchschmuggeln, selbst wenn er nicht im Pending-Set ist.
+      if (!isEditorPath(path)) continue;
       const f = filesByPath.get(path);
       if (!f) continue;
       includedPaths.push(path);
@@ -323,10 +344,14 @@ async function rebaseStagingOntoMain(mainSha) {
     fetchBlobMap(STAGING),
   ]);
 
-  // Welche Dateien haben unterschiedliche Blob-SHAs?
+  // Welche EDITOR-Dateien haben unterschiedliche Blob-SHAs? Theme-/Code-
+  // Pfade ignorieren wir — die werden durch die base_tree=main-Basis
+  // automatisch von main übernommen, statt durch staging überschrieben
+  // zu werden.
   const treeOps = [];
   const allPaths = new Set([...mainBlobs.keys(), ...stagingBlobs.keys()]);
   for (const path of allPaths) {
+    if (!isEditorPath(path)) continue;
     const onMain = mainBlobs.get(path);
     const onStaging = stagingBlobs.get(path);
     if (onMain === onStaging) continue;
