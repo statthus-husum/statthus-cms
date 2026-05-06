@@ -1,10 +1,14 @@
-import type { Field } from "tinacms";
+import type { Collection } from "tinacms";
 
 // Wiederverwendbares Cards-Feld: Liste von Kacheln, die auf Ziel-Abschnitte
 // (projekt/member/help) oder Section-Landings (section_intro) verlinken.
 // Kommt in den Abschnitt-Collections vor; ein leeres Cards-Array rendert
 // auf der Live-Site nichts.
-export const cardsField: Field = {
+//
+// Type: aus Collection["fields"][number] gezogen, weil das exportierte
+// `Field` aus tinacms der strenge Form-Field-Runtime-Typ ist (verlangt
+// `component`), während die Schema-Felder den loseren TinaField-Typ haben.
+export const cardsField: Collection["fields"][number] = {
   type: "object",
   name: "cards",
   label: "Cards",
