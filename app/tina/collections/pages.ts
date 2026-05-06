@@ -1,5 +1,7 @@
 import type { Collection } from "tinacms";
 
+import { cardsField } from "./cards-field";
+
 // Abschnitte unterhalb der Section-Landings /projekt, /member, /help.
 //
 // Jeder Abschnitt ist genau eine Markdown-Datei direkt im Section-Ordner —
@@ -67,6 +69,7 @@ function makeSectionCollection(name: string, label: string): Collection {
         label: "Entwurf",
         description: "Wenn an, nicht veröffentlicht.",
       },
+      cardsField,
       {
         type: "rich-text",
         name: "body",
