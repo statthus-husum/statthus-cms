@@ -80,11 +80,12 @@ export const ThemenIntroCollection: Collection = {
           label: "Bild",
         },
         {
-          type: "string",
+          type: "reference",
           name: "link",
-          label: "Ziel",
+          label: "Ziel-Seite",
           description:
-            "URL (z.B. /projekt/das-denkmal/ oder https://…) oder Pfad ins Repo (z.B. content/german/projekt/das-denkmal/_index.md) — das Hugo-Layout löst beide Formate auf.",
+            "Die Seite, auf die diese Card verlinken soll — z.B. eine Sub-Section (/projekt/das-denkmal/) oder eine Unterseite. Tina speichert den Repo-Pfad; das Hugo-Layout baut daraus die URL.",
+          collections: ["section_intro", "projekt", "member", "help"],
         },
       ],
     },
