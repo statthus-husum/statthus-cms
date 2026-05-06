@@ -48,9 +48,10 @@ export const ThemenIntroCollection: Collection = {
       name: "draft",
       label: "Entwurf",
     },
-    // Cards verlinken auf Unterseiten der Section. Relevant für /projekt,
-    // /member, /help und deren Sub-Sections. Bleibt das Feld leer, rendert
-    // das Hugo-Layout einfach keine Cards.
+    // Cards verlinken auf Abschnitte der Section. Relevant für /projekt,
+    // /member, /help — eine Card zeigt jeweils auf einen Abschnitt
+    // (z.B. content/german/projekt/das-denkmal.md). Bleibt das Feld leer,
+    // rendert das Hugo-Layout einfach keine Cards.
     {
       type: "object",
       name: "cards",
@@ -82,9 +83,9 @@ export const ThemenIntroCollection: Collection = {
         {
           type: "reference",
           name: "link",
-          label: "Ziel-Seite",
+          label: "Ziel-Abschnitt",
           description:
-            "Die Seite, auf die diese Card verlinken soll — z.B. eine Sub-Section (/projekt/das-denkmal/) oder eine Unterseite. Tina speichert den Repo-Pfad; das Hugo-Layout baut daraus die URL.",
+            "Der Abschnitt, auf den diese Card verlinken soll — wählbar aus den Projekt-, Mitwohnen- und Unterstützen-Abschnitten sowie den Section-Landings. Tina speichert den Repo-Pfad; das Hugo-Layout baut daraus die URL.",
           collections: ["section_intro", "projekt", "member", "help"],
         },
       ],
