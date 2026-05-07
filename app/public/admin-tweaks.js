@@ -19,11 +19,21 @@
     'div:has(> a[href*="search/overview"]),',
     'div:has(> a[href*="search/configuration"])',
     "{ display: none !important; }",
-    // 2. "Add Folder"-Button verstecken — Hugo kann mit nested Subfolder-
-    //    Strukturen schlecht umgehen, plus Editoren erzeugen damit
-    //    versehentlich Phantom-Pfade
+    // 2. "Add Folder"-Button selektiv verstecken.
+    //    In flachen Collections (event/news/person) machen Unterordner
+    //    keinen Sinn — Hugo erwartet dort einzelne MD-Dateien direkt im
+    //    Section-Verzeichnis. Editor:innen würden mit Folder-Klick nur
+    //    Phantom-Pfade erzeugen.
+    //    In projekt/member/help bleibt der Button sichtbar, weil die
+    //    Sub-Section-Struktur (z.B. projekt/das-denkmal/...) explizit
+    //    gewollt ist.
+    //    Den globalen "#/collections/new-folder"-Eintrag (ohne Collection-
+    //    Prefix) hide-ich generell — der gehört zu keiner sinnvollen
+    //    Aktion.
     'a[href="#/collections/new-folder"],',
-    'a[href*="new-folder"]',
+    'a[href*="/collections/event"][href*="new-folder"],',
+    'a[href*="/collections/news"][href*="new-folder"],',
+    'a[href*="/collections/person"][href*="new-folder"]',
     "{ display: none !important; }",
     // 3. Versions-Update-Hinweis verstecken (Warnsymbol + "vX.Y.Z published"-
     //    Zeile unten links). Wir bleiben bewusst auf v2 — der Hinweis dient
