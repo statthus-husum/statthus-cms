@@ -1,27 +1,42 @@
 // Legt einen Sub-Section-Ordner unter content/german/{projekt|member|help}/
-// an, indem eine sichtbare Platzhalter-Datei `neuer-eintrag.md` mit
-// Default-Frontmatter committet wird. Tinas Default-"Add Folder"-Flow
-// funktioniert in unserem self-hosted Setup (MongoDB + GitHub) nicht —
-// dieser Endpunkt ersetzt ihn.
+// an, indem über Tinas eigene `createDocument`-GraphQL-Mutation eine
+// sichtbare Platzhalter-Datei `neuer-eintrag.md` mit Default-Frontmatter
+// erzeugt wird.
 //
-// Warum kein `_index.md`? Die projekt/member/help-Collections schließen
-// `**/_index` per `match.exclude` aus (das `_index.md` der Section-Landing
-// gehört zur section_intro-Collection). Ein leerer Ordner mit nur
-// `_index.md` wäre für Tina also unsichtbar — die Editor:in fände den
-// frisch angelegten Ordner nirgends im Listing wieder. Eine reguläre
-// `.md`-Datei ist hingegen direkt sichtbar, kann umbenannt oder mit
-// echtem Inhalt gefüllt werden.
+// Warum nicht direkt via GitHub-REST-API committen? Weil dann nur das
+// Repo aktualisiert wird, nicht aber Tinas MongoDB-Index. Die Tina-UI
+// fragt gegen den Index — neu committete Dateien wären erst nach einem
+// Container-Reindex sichtbar.
+//
+// Warum statt `createFolder` ein echtes Dokument? `createFolder`
+// schreibt eine `.gitkeep.md` mit `_is_tina_folder_placeholder`-Marker.
+// In unserem dual-backend-Setup (MongoDB + GitProvider) hat das
+// historisch zu Index-/Sichtbarkeitsproblemen geführt. Ein echtes
+// `createDocument` ist robuster: der Eintrag taucht direkt im Listing
+// auf, die Editor:in kann ihn umbenennen oder mit Inhalt füllen.
+//
+// Warum kein `_index.md` als Platzhalter? Die projekt/member/help-
+// Collections schließen `**/_index` per `match.exclude` aus
+// (Section-Landings gehören zu themen-intro). Ein `_index.md` wäre also
+// für Tina unsichtbar.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
-const REPO = process.env.GITHUB_REPO || "statthus-website";
-const BRANCH = process.env.GITHUB_BRANCH || "staging";
-const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
+import databaseClient from "../../../tina/__generated__/databaseClient";
 
-// Welche Tina-Collections dürfen Ordner anlegen? Spiegelt die Allowlist
-// aus admin-tweaks.js.
 const ALLOWED_COLLECTIONS = new Set(["projekt", "member", "help"]);
+
+const CREATE_DOCUMENT_GQL = `
+mutation CreatePlaceholder($collection: String!, $relativePath: String!, $params: DocumentMutation!) {
+  createDocument(
+    collection: $collection
+    relativePath: $relativePath
+    params: $params
+  ) {
+    __typename
+  }
+}
+`;
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};
@@ -50,7 +65,6 @@ export default async function handler(
 ) {
   if (req.method !== "POST") return res.status(405).end();
   if (!isAuthed(req)) return res.status(401).json({ error: "Not authenticated" });
-  if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
 
   try {
     const body = (req.body || {}) as { collection?: string; title?: string };
@@ -70,55 +84,46 @@ export default async function handler(
         .json({ error: "title contains no usable slug characters" });
     }
 
+    const relativePath = `${slug}/neuer-eintrag.md`;
     const folderPath = `content/german/${collection}/${slug}`;
-    const placeholderPath = `${folderPath}/neuer-eintrag.md`;
 
-    // Idempotenz: existiert der Ordner schon (egal mit welchen Dateien),
-    // brechen wir ab statt einen Doppel-Platzhalter reinzulegen. GitHubs
-    // Contents-API liefert für einen Ordner 200 + Array, für eine Datei
-    // 200 + Objekt, sonst 404.
-    const existsRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(folderPath)}?ref=${BRANCH}`,
-      { headers: { Authorization: `Bearer ${TOKEN}` } },
-    );
-    if (existsRes.ok) {
-      return res.json({ ok: true, path: folderPath, alreadyExists: true });
-    }
-
-    const safeTitle = title.replace(/"/g, '\\"');
-    const placeholderBody = `---
-title: "${safeTitle}"
-description: ""
-draft: true
----
-`;
-    const content = Buffer.from(placeholderBody, "utf-8").toString("base64");
-
-    const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(placeholderPath)}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          Accept: "application/vnd.github+json",
+    // Tinas createDocument: schreibt MongoDB-Index UND committet via
+    // GitProvider in einem Rutsch. Bei Doppel-Anlage wirft Tina
+    // "Unable to add document, ... already exists" — als idempotent OK
+    // zurückspielen.
+    const result: any = await databaseClient.request({
+      query: CREATE_DOCUMENT_GQL,
+      variables: {
+        collection,
+        relativePath,
+        params: {
+          [collection]: {
+            title,
+            description: "",
+            draft: true,
+          },
         },
-        body: JSON.stringify({
-          message: `Tina: Sub-Section ${collection}/${slug} angelegt (Platzhalter)`,
-          content,
-          branch: BRANCH,
-        }),
       },
-    );
+      // user-Feld bleibt leer — Auth wurde oben per Cookie geprüft,
+      // die Mutation läuft mit den GitProvider-Credentials.
+      user: undefined,
+    });
 
-    if (!ghRes.ok) {
-      const errBody = await ghRes.json().catch(() => ({}));
-      return res
-        .status(502)
-        .json({ error: errBody.message || "GitHub create failed" });
+    const errors = result?.errors;
+    if (errors && errors.length > 0) {
+      const msg = errors[0]?.message || "createDocument failed";
+      if (/already exists/i.test(msg)) {
+        return res.json({ ok: true, path: folderPath, alreadyExists: true });
+      }
+      return res.status(502).json({ error: msg });
     }
 
     return res.json({ ok: true, path: folderPath });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    const msg = err?.message || "unknown error";
+    if (/already exists/i.test(msg)) {
+      return res.json({ ok: true, alreadyExists: true });
+    }
+    return res.status(500).json({ error: msg });
   }
 }
