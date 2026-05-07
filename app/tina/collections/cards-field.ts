@@ -5,10 +5,11 @@ import type { Collection } from "tinacms";
 // Kommt in den Abschnitt-Collections vor; ein leeres Cards-Array rendert
 // auf der Live-Site nichts.
 //
-// Type: aus Collection["fields"][number] gezogen, weil das exportierte
-// `Field` aus tinacms der strenge Form-Field-Runtime-Typ ist (verlangt
-// `component`), während die Schema-Felder den loseren TinaField-Typ haben.
-export const cardsField: Collection["fields"][number] = {
+// Type: aus Collection["fields"] gezogen, weil das exportierte `Field` aus
+// tinacms der strenge Form-Field-Runtime-Typ ist (verlangt `component`),
+// während die Schema-Felder den loseren TinaField-Typ haben. NonNullable,
+// weil Collection["fields"] in den Tina-Typings selbst optional ist.
+export const cardsField: NonNullable<Collection["fields"]>[number] = {
   type: "object",
   name: "cards",
   label: "Cards",
