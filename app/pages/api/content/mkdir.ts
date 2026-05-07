@@ -109,13 +109,18 @@ export default async function handler(
     // Reihenfolge egal — beide Dateien landen im gleichen Ordner. Wir
     // legen das `_index.md` zuerst an, weil das semantisch die
     // Section-Landing ist; der Platzhalter folgt danach.
+    //
+    // `draft: false` ist absichtlich gesetzt: Hugo überspringt
+    // `draft: true` im Production-Build und liefert dann 404 für die
+    // neue Section. Editor:innen können nachträglich auf draft
+    // umstellen, wenn sie den Eintrag erst mal verstecken wollen.
     const indexResult = await createOne({
       collection: "section_intro",
       relativePath: `${collection}/${slug}/_index.md`,
       params: {
         title,
         description: "",
-        draft: true,
+        draft: false,
       },
     });
 
@@ -125,7 +130,7 @@ export default async function handler(
       params: {
         title: "Neuer Eintrag",
         description: "",
-        draft: true,
+        draft: false,
       },
     });
 
