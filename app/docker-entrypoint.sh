@@ -16,7 +16,7 @@ ADMIN_BACKUP=/tmp/admin-backup
 # WICHTIG: Wir kopieren NUR die für Tina-Collections relevanten Pfade. Sonst
 # zieht Tina das ganze Hugo-Theme-Demo-Content-Verzeichnis ein und der Build
 # OOM-killed bei kleineren VMs.
-TINA_PATHS="content/users content/german/event content/german/news content/german/people content/german/themen"
+TINA_PATHS="content/users content/german/event content/german/news content/german/people content/german/themen content/german/projekt content/german/member content/german/help"
 
 if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ] && [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
   echo "[entrypoint] Refreshing content from $GITHUB_OWNER/$GITHUB_REPO@${GITHUB_BRANCH:-main}"
@@ -39,7 +39,8 @@ if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ] && [ -n "$GITHUB_OWNER" ] && [ -n "$GI
 
     MD_COUNT=$(find "$CONTENT_DIR" -name '*.md' 2>/dev/null | wc -l)
     JSON_COUNT=$(find "$CONTENT_DIR" -name '*.json' 2>/dev/null | wc -l)
-    echo "[entrypoint] Content synced: $MD_COUNT markdown, $JSON_COUNT json (selektiv aus 5 Tina-Pfaden)"
+    PATH_COUNT=$(echo $TINA_PATHS | wc -w)
+    echo "[entrypoint] Content synced: $MD_COUNT markdown, $JSON_COUNT json (selektiv aus $PATH_COUNT Tina-Pfaden)"
   else
     echo "[entrypoint] WARN: git clone fehlgeschlagen — nutze existierenden lokalen Content"
   fi
