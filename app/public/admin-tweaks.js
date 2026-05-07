@@ -82,10 +82,12 @@
  *      sind (projekt/member/help). In flachen Collections (event/news/
  *      person) bleibt er versteckt, sonst würden Editor:innen Phantom-
  *      Pfade anlegen.
- *   2. Beim Anlegen eines Ordners den Namen live slugifizieren — Umlaute
- *      auflösen, Leerzeichen zu Bindestrichen, alles außer a-z 0-9 _ -
- *      raus. Sonst landet "Das Denkmal" als URL-Encoded-Verzeichnis im
- *      Hugo-Pfad.
+ *   2. Klick auf den Button abfangen: Tinas Default-Folder-Flow committet
+ *      in unserem self-hosted Setup nichts — also fragen wir per
+ *      window.prompt nach dem Namen, slugifizieren ihn und committen ein
+ *      _index.md über /api/content/mkdir.
+ *   3. Live-Slugify in Modals als Fallback (z.B. wenn Tina doch mal
+ *      einen Folder-Modal mit Hash "new-folder" zeigt).
  */
 (function () {
   var FOLDER_BTN_SELECTOR = 'a[href="#/collections/new-folder"]';
@@ -131,6 +133,59 @@
     setter.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }
+
+  // Klick auf den Add-Folder-Anchor abfangen, eigene Mkdir-Route ansteuern.
+  async function runContentMkdirFlow(collection) {
+    var raw = window.prompt(
+      "Name des neuen Abschnitts (z.B. 'Das Denkmal'):",
+    );
+    if (raw === null) return;
+    raw = raw.trim();
+    if (!raw) return;
+
+    try {
+      var res = await fetch("/api/content/mkdir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collection: collection, title: raw }),
+        credentials: "same-origin",
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        window.alert("Anlegen fehlgeschlagen: " + (data.error || res.status));
+        return;
+      }
+      window.alert(
+        "Ordner angelegt: " +
+          (data.path || "(unbekannt)") +
+          (data.alreadyExists ? " (bestand schon)" : "") +
+          "\n\nTina-UI bitte neu laden, damit der Eintrag erscheint.",
+      );
+    } catch (err) {
+      window.alert("Fehler: " + (err && err.message));
+    }
+  }
+
+  document.addEventListener(
+    "click",
+    function (ev) {
+      var target = ev.target;
+      if (!target) return;
+      var anchor = target.closest
+        ? target.closest(FOLDER_BTN_SELECTOR)
+        : null;
+      if (!anchor) return;
+      var col = currentCollection();
+      if (!col || FOLDER_ALLOWED_COLLECTIONS.indexOf(col) === -1) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      runContentMkdirFlow(col);
+    },
+    true,
+  );
 
   var slugifying = false;
   document.addEventListener("input", function (ev) {
