@@ -160,7 +160,10 @@
       window.alert(
         "Ordner angelegt: " +
           (data.path || "(unbekannt)") +
-          (data.alreadyExists ? " (bestand schon)" : "") +
+          (data.alreadyExists
+            ? " (bestand schon)"
+            : "\n\nIm Ordner liegt eine Platzhalter-Datei 'neuer-eintrag.md', " +
+              "die du umbenennen oder füllen kannst.") +
           "\n\nTina-UI bitte neu laden, damit der Eintrag erscheint.",
       );
     } catch (err) {
@@ -168,24 +171,33 @@
     }
   }
 
-  document.addEventListener(
-    "click",
-    function (ev) {
-      var target = ev.target;
-      if (!target) return;
-      var anchor = target.closest
-        ? target.closest(FOLDER_BTN_SELECTOR)
-        : null;
-      if (!anchor) return;
-      var col = currentCollection();
-      if (!col || FOLDER_ALLOWED_COLLECTIONS.indexOf(col) === -1) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+  // Tinas Add-Folder-Link öffnet sein Modal bereits im onMouseDown
+  // (siehe tinacms-Source: setFolderModalOpen(true) im Mousedown-Handler).
+  // Ein reiner Click-Interceptor wäre zu spät: Tinas Modal stünde dann
+  // schon offen, und wenn Editor:innen dort "Create" drücken, geht der
+  // Folder-Create über die interne GraphQL-Mutation, die in unserem
+  // self-hosted MongoDB+GitHub-Setup nichts committet.
+  // Lösung: in der Capture-Phase auf document beide Events kapern und per
+  // stopImmediatePropagation Tinas React-Handler ausbremsen — das Modal
+  // bleibt zu, der Prompt kommt sauber einmal auf click.
+  function handleFolderBtnInteraction(ev) {
+    var target = ev.target;
+    if (!target) return;
+    var anchor = target.closest
+      ? target.closest(FOLDER_BTN_SELECTOR)
+      : null;
+    if (!anchor) return;
+    var col = currentCollection();
+    if (!col || FOLDER_ALLOWED_COLLECTIONS.indexOf(col) === -1) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    if (ev.type === "click") {
       runContentMkdirFlow(col);
-    },
-    true,
-  );
+    }
+  }
+  document.addEventListener("mousedown", handleFolderBtnInteraction, true);
+  document.addEventListener("click", handleFolderBtnInteraction, true);
 
   var slugifying = false;
   document.addEventListener("input", function (ev) {

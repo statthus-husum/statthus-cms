@@ -1,7 +1,16 @@
 // Legt einen Sub-Section-Ordner unter content/german/{projekt|member|help}/
-// an, indem ein _index.md mit Default-Frontmatter committet wird. Tinas
-// Default-"Add Folder"-Flow funktioniert in unserem self-hosted Setup
-// (MongoDB + GitHub) nicht — dieser Endpunkt ersetzt ihn.
+// an, indem eine sichtbare Platzhalter-Datei `neuer-eintrag.md` mit
+// Default-Frontmatter committet wird. Tinas Default-"Add Folder"-Flow
+// funktioniert in unserem self-hosted Setup (MongoDB + GitHub) nicht —
+// dieser Endpunkt ersetzt ihn.
+//
+// Warum kein `_index.md`? Die projekt/member/help-Collections schließen
+// `**/_index` per `match.exclude` aus (das `_index.md` der Section-Landing
+// gehört zur section_intro-Collection). Ein leerer Ordner mit nur
+// `_index.md` wäre für Tina also unsichtbar — die Editor:in fände den
+// frisch angelegten Ordner nirgends im Listing wieder. Eine reguläre
+// `.md`-Datei ist hingegen direkt sichtbar, kann umbenannt oder mit
+// echtem Inhalt gefüllt werden.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -62,11 +71,14 @@ export default async function handler(
     }
 
     const folderPath = `content/german/${collection}/${slug}`;
-    const indexPath = `${folderPath}/_index.md`;
+    const placeholderPath = `${folderPath}/neuer-eintrag.md`;
 
-    // Idempotenz: Ordner existiert bereits → ok melden, nichts committen.
+    // Idempotenz: existiert der Ordner schon (egal mit welchen Dateien),
+    // brechen wir ab statt einen Doppel-Platzhalter reinzulegen. GitHubs
+    // Contents-API liefert für einen Ordner 200 + Array, für eine Datei
+    // 200 + Objekt, sonst 404.
     const existsRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(indexPath)}?ref=${BRANCH}`,
+      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(folderPath)}?ref=${BRANCH}`,
       { headers: { Authorization: `Bearer ${TOKEN}` } },
     );
     if (existsRes.ok) {
@@ -74,16 +86,16 @@ export default async function handler(
     }
 
     const safeTitle = title.replace(/"/g, '\\"');
-    const indexBody = `---
+    const placeholderBody = `---
 title: "${safeTitle}"
 description: ""
 draft: true
 ---
 `;
-    const content = Buffer.from(indexBody, "utf-8").toString("base64");
+    const content = Buffer.from(placeholderBody, "utf-8").toString("base64");
 
     const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(indexPath)}`,
+      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(placeholderPath)}`,
       {
         method: "PUT",
         headers: {
@@ -91,7 +103,7 @@ draft: true
           Accept: "application/vnd.github+json",
         },
         body: JSON.stringify({
-          message: `Tina: Sub-Section ${collection}/${slug} angelegt`,
+          message: `Tina: Sub-Section ${collection}/${slug} angelegt (Platzhalter)`,
           content,
           branch: BRANCH,
         }),
