@@ -43,10 +43,13 @@ export default defineConfig({
       EventCollection,
       NewsCollection,
       PersonCollection,
+      // Kopftexte sollen vor den Abschnitt-Collections in der Sidebar
+      // erscheinen — die Reihenfolge in diesem Array bestimmt die
+      // Anzeige in Tinas Admin-Menü.
+      ThemenIntroCollection,
       ProjektCollection,
       MemberCollection,
       HelpCollection,
-      ThemenIntroCollection,
     ],
   },
 });
