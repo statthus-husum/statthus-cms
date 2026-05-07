@@ -1,24 +1,19 @@
 // Legt einen Sub-Section-Ordner unter content/german/{projekt|member|help}/
-// an, indem über Tinas eigene `createDocument`-GraphQL-Mutation eine
-// sichtbare Platzhalter-Datei `neuer-eintrag.md` mit Default-Frontmatter
-// erzeugt wird.
+// an, indem zwei Dokumente über Tinas eigene `createDocument`-Mutation
+// erzeugt werden:
 //
-// Warum nicht direkt via GitHub-REST-API committen? Weil dann nur das
-// Repo aktualisiert wird, nicht aber Tinas MongoDB-Index. Die Tina-UI
-// fragt gegen den Index — neu committete Dateien wären erst nach einem
-// Container-Reindex sichtbar.
+//   1. `<slug>/_index.md`   — Section-Landing für Hugo, sonst 404 auf
+//      `/projekt/<slug>/`. Liegt schema-seitig in der section_intro-
+//      Collection (Kopftexte), die `**/_index` indiziert.
+//   2. `<slug>/neuer-eintrag.md` — Sichtbarer Platzhalter im Listing der
+//      projekt/member/help-Collection, damit der Ordner dort überhaupt
+//      auftaucht (die Collection schließt `**/_index` per `match.exclude`
+//      aus, weil das zur section_intro gehört).
 //
-// Warum statt `createFolder` ein echtes Dokument? `createFolder`
-// schreibt eine `.gitkeep.md` mit `_is_tina_folder_placeholder`-Marker.
-// In unserem dual-backend-Setup (MongoDB + GitProvider) hat das
-// historisch zu Index-/Sichtbarkeitsproblemen geführt. Ein echtes
-// `createDocument` ist robuster: der Eintrag taucht direkt im Listing
-// auf, die Editor:in kann ihn umbenennen oder mit Inhalt füllen.
-//
-// Warum kein `_index.md` als Platzhalter? Die projekt/member/help-
-// Collections schließen `**/_index` per `match.exclude` aus
-// (Section-Landings gehören zu themen-intro). Ein `_index.md` wäre also
-// für Tina unsichtbar.
+// Beide Calls laufen über den generierten databaseClient, also denselben
+// resolve()-Pfad wie /api/tina/[...routes]: das schreibt MongoDB-Index
+// UND committet via GitProvider in einem Rutsch — die Einträge erscheinen
+// sofort in der Tina-UI und nach dem nächsten Hugo-Build im Live-Site.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -59,6 +54,31 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Ein einzelnes Dokument via Tina-Mutation anlegen. Liefert `existed=true`,
+// wenn Tina mit "already exists" antwortet (idempotent), wirft sonst.
+async function createOne(args: {
+  collection: string;
+  relativePath: string;
+  params: Record<string, unknown>;
+}): Promise<{ existed: boolean }> {
+  const result: any = await databaseClient.request({
+    query: CREATE_DOCUMENT_GQL,
+    variables: {
+      collection: args.collection,
+      relativePath: args.relativePath,
+      params: { [args.collection]: args.params },
+    },
+    user: undefined,
+  });
+  const errors = result?.errors;
+  if (errors && errors.length > 0) {
+    const msg = errors[0]?.message || "createDocument failed";
+    if (/already exists/i.test(msg)) return { existed: true };
+    throw new Error(msg);
+  }
+  return { existed: false };
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -84,46 +104,38 @@ export default async function handler(
         .json({ error: "title contains no usable slug characters" });
     }
 
-    const relativePath = `${slug}/neuer-eintrag.md`;
     const folderPath = `content/german/${collection}/${slug}`;
 
-    // Tinas createDocument: schreibt MongoDB-Index UND committet via
-    // GitProvider in einem Rutsch. Bei Doppel-Anlage wirft Tina
-    // "Unable to add document, ... already exists" — als idempotent OK
-    // zurückspielen.
-    const result: any = await databaseClient.request({
-      query: CREATE_DOCUMENT_GQL,
-      variables: {
-        collection,
-        relativePath,
-        params: {
-          [collection]: {
-            title,
-            description: "",
-            draft: true,
-          },
-        },
+    // Reihenfolge egal — beide Dateien landen im gleichen Ordner. Wir
+    // legen das `_index.md` zuerst an, weil das semantisch die
+    // Section-Landing ist; der Platzhalter folgt danach.
+    const indexResult = await createOne({
+      collection: "section_intro",
+      relativePath: `${collection}/${slug}/_index.md`,
+      params: {
+        title,
+        description: "",
+        draft: true,
       },
-      // user-Feld bleibt leer — Auth wurde oben per Cookie geprüft,
-      // die Mutation läuft mit den GitProvider-Credentials.
-      user: undefined,
     });
 
-    const errors = result?.errors;
-    if (errors && errors.length > 0) {
-      const msg = errors[0]?.message || "createDocument failed";
-      if (/already exists/i.test(msg)) {
-        return res.json({ ok: true, path: folderPath, alreadyExists: true });
-      }
-      return res.status(502).json({ error: msg });
-    }
+    const placeholderResult = await createOne({
+      collection,
+      relativePath: `${slug}/neuer-eintrag.md`,
+      params: {
+        title: "Neuer Eintrag",
+        description: "",
+        draft: true,
+      },
+    });
 
-    return res.json({ ok: true, path: folderPath });
+    return res.json({
+      ok: true,
+      path: folderPath,
+      alreadyExists: indexResult.existed && placeholderResult.existed,
+    });
   } catch (err: any) {
     const msg = err?.message || "unknown error";
-    if (/already exists/i.test(msg)) {
-      return res.json({ ok: true, alreadyExists: true });
-    }
     return res.status(500).json({ error: msg });
   }
 }
