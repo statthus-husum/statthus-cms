@@ -19,22 +19,12 @@
     'div:has(> a[href*="search/overview"]),',
     'div:has(> a[href*="search/configuration"])',
     "{ display: none !important; }",
-    // 2. "Add Folder"-Button selektiv verstecken.
-    //    In flachen Collections (event/news/person) machen Unterordner
-    //    keinen Sinn — Hugo erwartet dort einzelne MD-Dateien direkt im
-    //    Section-Verzeichnis. Editor:innen würden mit Folder-Klick nur
-    //    Phantom-Pfade erzeugen.
-    //    In projekt/member/help bleibt der Button sichtbar, weil die
-    //    Sub-Section-Struktur (z.B. projekt/das-denkmal/...) explizit
-    //    gewollt ist.
-    //    Den globalen "#/collections/new-folder"-Eintrag (ohne Collection-
-    //    Prefix) hide-ich generell — der gehört zu keiner sinnvollen
-    //    Aktion.
-    'a[href="#/collections/new-folder"],',
-    'a[href*="/collections/event"][href*="new-folder"],',
-    'a[href*="/collections/news"][href*="new-folder"],',
-    'a[href*="/collections/person"][href*="new-folder"]',
-    "{ display: none !important; }",
+    // 2. "Add Folder"-Button: kein statischer CSS-Hide. Tina rendert den
+    //    Button mit dem Href "#/collections/new-folder" — also ohne
+    //    Collection-Prefix, sodass eine reine CSS-Regel ihn nur global
+    //    zeigen oder verstecken könnte. Visibility wird kontextabhängig
+    //    in der JS-Schicht (siehe weiter unten) geregelt: Button nur in
+    //    projekt/member/help sichtbar, sonst versteckt.
     // 3. Versions-Update-Hinweis verstecken (Warnsymbol + "vX.Y.Z published"-
     //    Zeile unten links). Wir bleiben bewusst auf v2 — der Hinweis dient
     //    nur Verwirrung.
@@ -83,6 +73,113 @@
   setTimeout(function () {
     obs.disconnect();
   }, 60000);
+})();
+
+/*
+ * Content-Folder-Steuerung
+ *   1. "Add Folder"-Button nur in den Collections sichtbar machen, in denen
+ *      verschachtelte Strukturen vom Hugo-Theme tatsächlich vorgesehen
+ *      sind (projekt/member/help). In flachen Collections (event/news/
+ *      person) bleibt er versteckt, sonst würden Editor:innen Phantom-
+ *      Pfade anlegen.
+ *   2. Beim Anlegen eines Ordners den Namen live slugifizieren — Umlaute
+ *      auflösen, Leerzeichen zu Bindestrichen, alles außer a-z 0-9 _ -
+ *      raus. Sonst landet "Das Denkmal" als URL-Encoded-Verzeichnis im
+ *      Hugo-Pfad.
+ */
+(function () {
+  var FOLDER_BTN_SELECTOR = 'a[href="#/collections/new-folder"]';
+  var FOLDER_ALLOWED_COLLECTIONS = ["projekt", "member", "help"];
+
+  function currentCollection() {
+    // Hash-Format: "#/collections/<name>" oder "#/collections/<name>/<file>"
+    var match = (window.location.hash || "").match(
+      /^#\/collections\/([^/?]+)/,
+    );
+    return match ? match[1] : null;
+  }
+
+  function updateFolderBtnVisibility() {
+    var btn = document.querySelector(FOLDER_BTN_SELECTOR);
+    if (!btn) return;
+    var col = currentCollection();
+    var allow = col && FOLDER_ALLOWED_COLLECTIONS.indexOf(col) !== -1;
+    btn.style.display = allow ? "" : "none";
+  }
+
+  function slugify(value) {
+    return (value || "")
+      .toString()
+      .toLowerCase()
+      .replace(/[äÄ]/g, "ae")
+      .replace(/[öÖ]/g, "oe")
+      .replace(/[üÜ]/g, "ue")
+      .replace(/ß/g, "ss")
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  // React trackt Input-Werte intern; ein direktes input.value = ... wird
+  // sonst nicht als Änderung erkannt. Über den Property-Setter und ein
+  // dispatched "input"-Event geht das durch.
+  function setReactValue(input, value) {
+    var setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    ).set;
+    setter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  var slugifying = false;
+  document.addEventListener("input", function (ev) {
+    if (slugifying) return;
+    if (!/new-folder/.test(window.location.hash || "")) return;
+    var input = ev.target;
+    if (
+      !input ||
+      input.tagName !== "INPUT" ||
+      (input.type && input.type !== "text")
+    )
+      return;
+
+    var slug = slugify(input.value);
+    if (slug === input.value) return;
+
+    var caretEnd = slug.length;
+    slugifying = true;
+    setReactValue(input, slug);
+    try {
+      input.setSelectionRange(caretEnd, caretEnd);
+    } catch (e) {
+      // bei type="text" sollte das gehen — manche Tina-Inputs werfen aber,
+      // einfach ignorieren
+    }
+    slugifying = false;
+  });
+
+  // Sichtbarkeit anpassen, sobald sich Hash ändert oder DOM neu rendert.
+  window.addEventListener("hashchange", updateFolderBtnVisibility);
+
+  var domObs = new MutationObserver(function () {
+    updateFolderBtnVisibility();
+  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      updateFolderBtnVisibility();
+      domObs.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    });
+  } else {
+    updateFolderBtnVisibility();
+    domObs.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
 })();
 
 /*
