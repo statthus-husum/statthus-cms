@@ -64,10 +64,43 @@ function makeSectionCollection(name: string, label: string): Collection {
         label: "Bild",
       },
       {
+        type: "number",
+        name: "weight",
+        label: "Reihenfolge (Weight)",
+        description:
+          "Niedrigere Zahlen erscheinen weiter vorn. Hugo sortiert die Abschnitte einer Section anhand dieses Werts.",
+      },
+      {
+        type: "string",
+        name: "image_position",
+        label: "Bild-Position",
+        options: [
+          { value: "right", label: "rechts" },
+          { value: "left", label: "links" },
+        ],
+        description:
+          "Auf welcher Seite die Card-Abbildung in der Section-Landing steht.",
+      },
+      {
         type: "boolean",
         name: "draft",
         label: "Entwurf",
         description: "Wenn an, nicht veröffentlicht.",
+      },
+      // Versteckte Default-Felder: vom Hugo-Theme verlangt (`build.render`
+      // schaltet die eigenständige Page ab, der Abschnitt erscheint nur
+      // noch als Card auf der Section-Landing). Editor:innen sollen das
+      // nicht versehentlich verändern — daher `component: () => null`,
+      // Tina behält den Wert beim Speichern aber bei.
+      {
+        type: "object",
+        name: "build",
+        label: "Build (versteckt)",
+        ui: { component: () => null },
+        fields: [
+          { type: "string", name: "render" },
+          { type: "string", name: "list" },
+        ],
       },
       cardsField,
       {

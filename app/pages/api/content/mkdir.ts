@@ -124,13 +124,21 @@ export default async function handler(
       },
     });
 
+    // Placeholder-Frontmatter spiegelt das Format der bestehenden, von
+    // Hand/Tina angelegten Abschnitt-Dateien: `weight` für Sortierung,
+    // `image_position: right` als übliche Card-Variante, `build.render:
+    // never` damit Hugo daraus keine eigenständige Seite baut (nur Card-
+    // Quelle für die Section-Landing) und `cards: []` als leerer Slot.
     const placeholderResult = await createOne({
       collection,
       relativePath: `${slug}/neuer-eintrag.md`,
       params: {
         title: "Neuer Eintrag",
-        description: "",
+        weight: 10,
+        image_position: "right",
         draft: false,
+        build: { render: "never", list: "local" },
+        cards: [],
       },
     });
 
