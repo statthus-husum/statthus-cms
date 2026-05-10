@@ -1,8 +1,14 @@
 // Löscht einen Sub-Section-Ordner unter content/german/{projekt|member|help}/,
-// indem alle darin liegenden Dateien (rekursiv) via Tinas
-// `deleteDocument`-Mutation entfernt werden. Tina räumt damit
-// gleichzeitig MongoDB-Index UND GitHub auf — der Ordner verschwindet
-// danach aus der UI und aus dem nächsten Hugo-Build von /<collection>/<slug>/.
+// indem alle darin liegenden Dateien (rekursiv) direkt über das
+// @tinacms/datalayer-`database`-Objekt entfernt werden. `database.delete(path)`
+// räumt MongoDB-Index UND GitHub in einem Schritt auf — der Ordner
+// verschwindet damit sofort aus der UI und aus dem nächsten Hugo-Build
+// von /<collection>/<slug>/.
+//
+// Hintergrund: die `deleteDocument`-GraphQL-Mutation über den
+// generierten databaseClient committete zwar nach GitHub, aktualisierte
+// aber den MongoDB-Index nicht — die Tina-UI wurde erst nach einem
+// Container-Restart konsistent (der Entrypoint baut den Index neu).
 //
 // Nur Sub-Section-Ordner sind erlaubt; die Top-Level-Collections selbst
 // (content/german/projekt, .../member, .../help) können nicht gelöscht
@@ -13,7 +19,7 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
-import databaseClient from "../../../tina/__generated__/databaseClient";
+import database from "../../../tina/database";
 
 const ALLOWED_COLLECTIONS = new Set(["projekt", "member", "help"]);
 
@@ -21,14 +27,6 @@ const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
 const REPO = process.env.GITHUB_REPO || "statthus-website";
 const BRANCH = process.env.GITHUB_BRANCH || "staging";
 const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-
-const DELETE_DOCUMENT_GQL = `
-mutation DeletePlaceholder($collection: String!, $relativePath: String!) {
-  deleteDocument(collection: $collection, relativePath: $relativePath) {
-    __typename
-  }
-}
-`;
 
 interface GhItem {
   type: "file" | "dir" | "symlink" | "submodule";
@@ -116,35 +114,22 @@ export default async function handler(
         .json({ error: "folder is empty or does not exist" });
     }
 
-    // Für jede Datei den passenden Collection-Namen + relativePath
-    // berechnen und einzeln über Tina löschen. `_index.md` gehört zu
-    // section_intro (path content/german), alles andere zur jeweiligen
-    // Sub-Section-Collection (path content/german/<collection>).
+    // `database.delete(fullPath)` ruft direkt in @tinacms/datalayer und
+    // räumt MongoDB-Index UND GitHub auf — der Umweg über die
+    // GraphQL-Mutation `deleteDocument` aktualisierte aus uns unbekannten
+    // Gründen nur GitHub, nicht den MongoDB-Index, sodass die Tina-UI
+    // erst nach Container-Restart wieder konsistent war.
     const errors: { file: string; msg: string }[] = [];
     let deletedCount = 0;
     for (const file of files) {
-      let mutCollection: string;
-      let relativePath: string;
-      if (file.name === "_index.md") {
-        mutCollection = "section_intro";
-        relativePath = file.path.replace(/^content\/german\//, "");
-      } else {
-        mutCollection = collection;
-        relativePath = file.path.replace(
-          new RegExp(`^content/german/${collection}/`),
-          "",
-        );
-      }
-      const result: any = await databaseClient.request({
-        query: DELETE_DOCUMENT_GQL,
-        variables: { collection: mutCollection, relativePath },
-        user: undefined,
-      });
-      if (result?.errors && result.errors.length > 0) {
-        const msg = result.errors[0]?.message || "deleteDocument failed";
-        errors.push({ file: file.path, msg });
-      } else {
+      try {
+        await (database as any).delete(file.path);
         deletedCount += 1;
+      } catch (err: any) {
+        errors.push({
+          file: file.path,
+          msg: err?.message || "database.delete failed",
+        });
       }
     }
 
