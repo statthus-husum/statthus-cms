@@ -1,6 +1,6 @@
 // Legt einen Sub-Section-Ordner unter content/german/{projekt|member|help}/
-// an, indem zwei Dokumente über Tinas eigene `createDocument`-Mutation
-// erzeugt werden:
+// an, indem zwei Dokumente direkt über das @tinacms/datalayer-`database`-
+// Objekt geschrieben werden:
 //
 //   1. `<slug>/_index.md`   — Section-Landing für Hugo, sonst 404 auf
 //      `/projekt/<slug>/`. Liegt schema-seitig in der section_intro-
@@ -10,28 +10,18 @@
 //      auftaucht (die Collection schließt `**/_index` per `match.exclude`
 //      aus, weil das zur section_intro gehört).
 //
-// Beide Calls laufen über den generierten databaseClient, also denselben
-// resolve()-Pfad wie /api/tina/[...routes]: das schreibt MongoDB-Index
-// UND committet via GitProvider in einem Rutsch — die Einträge erscheinen
-// sofort in der Tina-UI und nach dem nächsten Hugo-Build im Live-Site.
+// `database.put(path, data, collection)` aus @tinacms/datalayer schreibt
+// in einem Rutsch MongoDB-Index UND committet via GitProvider — der
+// Umweg über die GraphQL-Mutation `createDocument` aktualisierte aus
+// uns unbekannten Gründen nur GitHub, nicht den MongoDB-Index, sodass
+// die Tina-UI die neuen Einträge erst nach Container-Restart zeigte
+// (der Entrypoint baut den Index neu).
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
-import databaseClient from "../../../tina/__generated__/databaseClient";
+import database from "../../../tina/database";
 
 const ALLOWED_COLLECTIONS = new Set(["projekt", "member", "help"]);
-
-const CREATE_DOCUMENT_GQL = `
-mutation CreatePlaceholder($collection: String!, $relativePath: String!, $params: DocumentMutation!) {
-  createDocument(
-    collection: $collection
-    relativePath: $relativePath
-    params: $params
-  ) {
-    __typename
-  }
-}
-`;
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};
@@ -54,28 +44,24 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-// Ein einzelnes Dokument via Tina-Mutation anlegen. Liefert `existed=true`,
-// wenn Tina mit "already exists" antwortet (idempotent), wirft sonst.
-async function createOne(args: {
+// Eine einzelne Datei anlegen, idempotent. Liefert `existed=true`, wenn
+// schon eine Datei am Pfad steht — dann nicht überschreiben, sonst
+// würden wir versehentlich Bestandsinhalt platt machen.
+async function putOne(args: {
+  fullPath: string;
   collection: string;
-  relativePath: string;
-  params: Record<string, unknown>;
+  data: Record<string, unknown>;
 }): Promise<{ existed: boolean }> {
-  const result: any = await databaseClient.request({
-    query: CREATE_DOCUMENT_GQL,
-    variables: {
-      collection: args.collection,
-      relativePath: args.relativePath,
-      params: { [args.collection]: args.params },
-    },
-    user: undefined,
-  });
-  const errors = result?.errors;
-  if (errors && errors.length > 0) {
-    const msg = errors[0]?.message || "createDocument failed";
-    if (/already exists/i.test(msg)) return { existed: true };
-    throw new Error(msg);
+  const db = database as any;
+  let existed = false;
+  try {
+    const current = await db.get(args.fullPath);
+    if (current) existed = true;
+  } catch {
+    existed = false;
   }
+  if (existed) return { existed: true };
+  await db.put(args.fullPath, args.data, args.collection);
   return { existed: false };
 }
 
@@ -114,30 +100,30 @@ export default async function handler(
     // `draft: true` im Production-Build und liefert dann 404 für die
     // neue Section. Editor:innen können nachträglich auf draft
     // umstellen, wenn sie den Eintrag erst mal verstecken wollen.
-    const indexResult = await createOne({
+    const indexResult = await putOne({
+      fullPath: `${folderPath}/_index.md`,
       collection: "section_intro",
-      relativePath: `${collection}/${slug}/_index.md`,
-      params: {
+      data: {
         title,
         description: "",
         draft: false,
       },
     });
 
-    // Placeholder-Frontmatter spiegelt das Format der bestehenden, von
-    // Hand/Tina angelegten Abschnitt-Dateien: `weight` für Sortierung,
-    // `image_position: right` als übliche Card-Variante, `build.render:
-    // never` damit Hugo daraus keine eigenständige Seite baut (nur Card-
-    // Quelle für die Section-Landing) und `cards: []` als leerer Slot.
-    const placeholderResult = await createOne({
+    // Placeholder spiegelt das Format der bestehenden, von Hand bzw. via
+    // Tina-UI editierten Abschnitt-Dateien: `weight` für Sortierung,
+    // `image_position: right` als übliche Card-Variante, `cards: []` als
+    // leerer Slot. KEIN `build.render: never` — sonst hätte Hugo dem
+    // Platzhalter keine eigene URL gegeben, und ein Card-Link, der hierher
+    // zeigt, würde auf die Parent-Section zurückfallen.
+    const placeholderResult = await putOne({
+      fullPath: `${folderPath}/neuer-eintrag.md`,
       collection,
-      relativePath: `${slug}/neuer-eintrag.md`,
-      params: {
+      data: {
         title: "Neuer Eintrag",
         weight: 10,
         image_position: "right",
         draft: false,
-        build: { render: "never", list: "local" },
         cards: [],
       },
     });
