@@ -21,13 +21,24 @@ if (!ADMIN_PASS || !GH_TOKEN) {
 }
 
 // Pfade, die durch die Freigabe von staging nach main wandern dürfen.
-// Alles, was Editor:innen über Tina anfassen, lebt unter diesen Prefixen:
-//   - content/         redaktionelle Markdown-Dateien + content/users/
-//   - assets/images/uploads/   CMS-hochgeladene Bilder
-// Theme-Code, Layouts, Hugo-Config, package.json etc. bleiben damit
-// gegenüber der Freigabe unsichtbar — wenn jemand direkt auf main an
-// Theme/Code arbeitet, überschreibt eine Freigabe das nicht mehr.
-const EDITOR_PREFIXES = ["content/", "assets/images/uploads/"];
+// Genau die Verzeichnisse, die Tina als Collections kennt (Spiegelbild von
+// app/docker-entrypoint.sh:TINA_PATHS) + die CMS-hochgeladenen Bilder.
+// Theme-Code, Layouts, Hugo-Config, package.json sowie content/-Unterordner,
+// die NICHT in Tina editiert werden (z.B. content/german/newsletter,
+// content/german/about) bleiben damit gegenüber der Freigabe unsichtbar —
+// wenn jemand direkt auf main an Theme/Code/Hugo-Pages arbeitet, überschreibt
+// eine Freigabe das nicht.
+const EDITOR_PREFIXES = [
+  "content/users/",
+  "content/german/event/",
+  "content/german/news/",
+  "content/german/people/",
+  "content/german/themen/",
+  "content/german/projekt/",
+  "content/german/member/",
+  "content/german/help/",
+  "assets/images/uploads/",
+];
 
 function isEditorPath(path) {
   return EDITOR_PREFIXES.some((prefix) => path.startsWith(prefix));
