@@ -406,3 +406,158 @@
   var obs = new MutationObserver(schedule);
   obs.observe(document.documentElement, { childList: true, subtree: true });
 })();
+
+/*
+ * Sub-Section-Ordner löschen.
+ *
+ * Pendant zum Folder-Create-Hook oben: wenn Editor:innen in einem
+ * individuell angelegten Sub-Folder unter projekt/member/help stehen
+ * (URL-Hash `#/collections/{projekt|member|help}/~/<slug>`), injizieren
+ * wir einen "Ordner löschen"-Button neben Tinas Add-File/Add-Folder.
+ * Klick → window.confirm → POST /api/content/rmdir, der via Tinas
+ * deleteDocument-Mutation alle Dateien im Ordner einzeln entfernt
+ * (MongoDB-Index UND GitHub).
+ *
+ * Sichtbarkeit:
+ *   - Nur in Folder-View (URL enthält "/~/<slug>"), nicht in Collection-Roots
+ *   - Nur für die drei Sub-Section-Collections projekt/member/help
+ *   ⇒ die Top-Level-Collections selbst und z.B. event/news/people sind
+ *     dadurch nicht löschbar.
+ */
+(function () {
+  var BTN_ID = "statthus-rmdir-btn";
+  var FOLDER_HASH_RE =
+    /^#\/collections\/(projekt|member|help)\/~\/([^?]+?)\/?(?:\?.*)?$/;
+
+  function currentSubFolder() {
+    var hash = window.location.hash || "";
+    var m = hash.match(FOLDER_HASH_RE);
+    if (!m) return null;
+    var slug = (m[2] || "").trim();
+    if (!slug) return null;
+    return { collection: m[1], slug: slug };
+  }
+
+  async function runRmdirFlow(collection, slug) {
+    var folderPath = "content/german/" + collection + "/" + slug;
+    var confirmed = window.confirm(
+      "Ordner und alle darin liegenden Dateien löschen?\n\n" +
+        folderPath +
+        "\n\nDas kann nicht rückgängig gemacht werden.",
+    );
+    if (!confirmed) return;
+    try {
+      var res = await fetch("/api/content/rmdir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collection: collection, slug: slug }),
+        credentials: "same-origin",
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        window.alert(
+          "Löschen fehlgeschlagen: " + (data.error || res.status),
+        );
+        return;
+      }
+      window.alert(
+        "Ordner gelöscht: " +
+          (data.path || folderPath) +
+          " (" +
+          (data.deleted || 0) +
+          " Datei(en))" +
+          "\n\nTina-UI bitte neu laden, damit der Eintrag verschwindet.",
+      );
+      // Zurück auf Collection-Root, sonst zeigt Tina einen toten Folder-View.
+      window.location.hash = "#/collections/" + collection;
+    } catch (err) {
+      window.alert("Fehler: " + (err && err.message));
+    }
+  }
+
+  function findActionContainer() {
+    // Tina rendert "Add File" als <Link> mit href "#/collections/new/<col>...".
+    // Dessen Parent-<div> ist der Buttons-Container; daneben hängt
+    // "Add Folder". Da fügen wir den Delete-Button ein.
+    var addFile = document.querySelector('a[href^="#/collections/new/"]');
+    return addFile && addFile.parentElement ? addFile.parentElement : null;
+  }
+
+  function makeBtn(collection, slug) {
+    var btn = document.createElement("button");
+    btn.id = BTN_ID;
+    btn.type = "button";
+    btn.textContent = "Ordner löschen";
+    btn.style.cssText = [
+      "margin-left:.5rem",
+      "padding:0 1.5rem",
+      "height:2.5rem",
+      "background:#dc2626",
+      "color:#fff",
+      "border:none",
+      "border-radius:.25rem",
+      "cursor:pointer",
+      "font-size:.875rem",
+      "font-weight:500",
+      "vertical-align:middle",
+      "white-space:nowrap",
+    ].join(";");
+    btn.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      runRmdirFlow(collection, slug);
+    });
+    return btn;
+  }
+
+  function tick() {
+    var existing = document.getElementById(BTN_ID);
+    var ctx = currentSubFolder();
+    if (!ctx) {
+      // Wir sind nicht in einem löschbaren Folder — Button raus, falls da.
+      if (existing) existing.remove();
+      return;
+    }
+    // Wenn Button schon da ist und auf den richtigen Folder zeigt: nichts tun.
+    if (existing && existing.dataset.slug === ctx.collection + "/" + ctx.slug) {
+      return;
+    }
+    if (existing) existing.remove();
+    var container = findActionContainer();
+    if (!container) return; // Tina hat die Action-Bar noch nicht gerendert
+    var btn = makeBtn(ctx.collection, ctx.slug);
+    btn.dataset.slug = ctx.collection + "/" + ctx.slug;
+    container.appendChild(btn);
+  }
+
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    (window.requestAnimationFrame || setTimeout)(function () {
+      pending = false;
+      tick();
+    }, 16);
+  }
+
+  window.addEventListener("hashchange", tick);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      tick();
+      var obs = new MutationObserver(schedule);
+      obs.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    });
+  } else {
+    tick();
+    var obs = new MutationObserver(schedule);
+    obs.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+})();
