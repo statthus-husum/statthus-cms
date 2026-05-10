@@ -164,7 +164,9 @@
             ? " (bestand schon)"
             : "\n\nIm Ordner liegt eine Platzhalter-Datei 'neuer-eintrag.md', " +
               "die du umbenennen oder füllen kannst.") +
-          "\n\nTina-UI bitte neu laden, damit der Eintrag erscheint.",
+          "\n\nDamit der Eintrag erscheint:" +
+          "\n  1. Über /freigabe veröffentlichen" +
+          "\n  2. Tina-UI neu laden",
       );
     } catch (err) {
       window.alert("Fehler: " + (err && err.message));
@@ -468,7 +470,9 @@
           " (" +
           (data.deleted || 0) +
           " Datei(en))" +
-          "\n\nTina-UI bitte neu laden, damit der Eintrag verschwindet.",
+          "\n\nDamit der Eintrag verschwindet:" +
+          "\n  1. Über /freigabe veröffentlichen" +
+          "\n  2. Tina-UI neu laden",
       );
       // Zurück auf Collection-Root, sonst zeigt Tina einen toten Folder-View.
       window.location.hash = "#/collections/" + collection;
