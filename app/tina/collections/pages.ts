@@ -4,11 +4,18 @@ import { cardsField } from "./cards-field";
 
 // Abschnitte unterhalb der Section-Landings /projekt, /member, /help.
 //
-// Jeder Abschnitt ist genau eine Markdown-Datei direkt im Section-Ordner —
-// z.B. content/german/projekt/das-denkmal.md, content/german/help/spenden.md.
-// Keine `<slug>/_index.md`-Verzeichnisstruktur, keine verschachtelten
-// Unterseiten. Die `_index.md`-Section-Landings selbst sind ausgespart und
-// gehören zur section_intro-Collection (themen-intro.ts).
+// Tina scannt rekursiv: ein Abschnitt ist eine Markdown-Datei direkt im
+// Section-Ordner ODER in einer Unter-Section (Sub-Folder mit _index.md).
+//
+// Beispiele:
+//   content/german/projekt/architektur.md
+//   content/german/projekt/das-denkmal/architekturgeschichtliche-bedeutung.md
+//   content/german/help/spenden.md
+//
+// Die `_index.md`-Section-Landings (sowohl Top-Level als auch in Sub-
+// Foldern wie das-denkmal/_index.md) sind hier ausgespart und gehören
+// zur section_intro-Collection (themen-intro.ts). Layout-/Build-Defaults
+// pushen wir auf Hugo-Seite via cascade in config/_default/hugo.toml.
 //
 // Frontmatter-Konvention orientiert sich an den existierenden Seiten im
 // Repo (z.B. about/_index.md, contact.md): title, description, image,
@@ -34,9 +41,10 @@ function makeSectionCollection(name: string, label: string): Collection {
     label,
     path: `content/german/${name}`,
     format: "md",
-    // _index.md gehört zur section_intro-Collection — alle anderen
-    // Markdown-Dateien direkt hier sind die Abschnitte.
-    match: { exclude: "**/_index" },
+    // Rekursive Suche: alle .md unter dem Section-Pfad inklusive Sub-
+    // Folder. _index.md (Top-Level oder in Sub-Folders) gehört zur
+    // section_intro-Collection — hier ausgenommen.
+    match: { include: "**/*", exclude: "**/_index" },
     ui: {
       filename: {
         slugify: (values) => slugify(values?.title, `neuer-${name}-abschnitt`),
