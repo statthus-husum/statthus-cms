@@ -9,8 +9,11 @@ import { NewsCollection } from "./collections/news";
 import { PersonCollection } from "./collections/person";
 import {
   ProjektCollection,
+  ProjektSubCollection,
   MemberCollection,
+  MemberSubCollection,
   HelpCollection,
+  HelpSubCollection,
 } from "./collections/pages";
 import { ThemenIntroCollection } from "./collections/themen-intro";
 
@@ -48,8 +51,11 @@ export default defineConfig({
       // Anzeige in Tinas Admin-Menü.
       ThemenIntroCollection,
       ProjektCollection,
+      ProjektSubCollection,
       MemberCollection,
+      MemberSubCollection,
       HelpCollection,
+      HelpSubCollection,
     ],
   },
 });
