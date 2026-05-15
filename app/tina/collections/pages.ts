@@ -123,8 +123,11 @@ function makeSectionCollection(name: string, label: string): Collection {
     label,
     path: `content/german/${name}`,
     format: "md",
-    // Default-Match ist flach. _index.md ausgeschlossen (section_intro).
-    match: { exclude: "**/_index" },
+    // include "*" = NUR genau eine Pfad-Ebene (Dateien direkt im
+    // Section-Ordner). Ohne include rekursiert Tina und zeigt auch
+    // Sub-Folder-Inhalte — die gehören aber in die *_sub-Collection.
+    // exclude "_index": projekt/_index.md → section_intro.
+    match: { include: "*", exclude: "_index" },
     ui: {
       filename: {
         slugify: (values) => slugify(values?.title, `neuer-${name}-abschnitt`),
