@@ -15,7 +15,10 @@ import {
   HelpCollection,
   HelpSubCollection,
 } from "./collections/pages";
-import { ThemenIntroCollection } from "./collections/themen-intro";
+import {
+  ThemenIntroCollection,
+  ThemenFilterCollection,
+} from "./collections/themen-intro";
 
 const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 
@@ -50,6 +53,7 @@ export default defineConfig({
       // erscheinen — die Reihenfolge in diesem Array bestimmt die
       // Anzeige in Tinas Admin-Menü.
       ThemenIntroCollection,
+      ThemenFilterCollection,
       ProjektCollection,
       ProjektSubCollection,
       MemberCollection,

@@ -43,7 +43,16 @@ export const cardsField: NonNullable<Collection["fields"]>[number] = {
       label: "Ziel-Abschnitt",
       description:
         "Der Abschnitt, auf den diese Card verlinken soll — wählbar aus den Projekt-, Mitwohnen- und Unterstützen-Abschnitten sowie den Section-Landings. Tina speichert den Repo-Pfad; das Hugo-Layout baut daraus die URL.",
-      collections: ["section_intro", "projekt", "member", "help"],
+      collections: [
+        "section_intro",
+        "themen_intro",
+        "projekt",
+        "projekt_sub",
+        "member",
+        "member_sub",
+        "help",
+        "help_sub",
+      ],
     },
   ],
 };
