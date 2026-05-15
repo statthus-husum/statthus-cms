@@ -17,7 +17,15 @@ export const ThemenIntroCollection: Collection = {
   label: "Kopftexte",
   path: "content/german",
   format: "md",
-  match: { include: "**/_index" },
+  // Nur Top-Level-Section-Landings (event/_index, news/_index,
+  // projekt/_index, …) plus die Themen-Filterseiten
+  // (themen/wie-wir-leben/_index). NICHT die Sub-Section-Landings wie
+  // projekt/das-denkmal/_index — die liegen in den *_sub-Collections.
+  //
+  // Ein zu tiefes "**/_index" hatte Tina die mittlere Pfad-Komponente
+  // verschlucken lassen ("content/german/der-neubau/_index.md" statt
+  // "content/german/projekt/der-neubau/_index.md").
+  match: { include: "{*,themen/*}/_index" },
   ui: {
     allowedActions: {
       create: false,

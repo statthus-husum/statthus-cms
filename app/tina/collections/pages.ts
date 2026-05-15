@@ -21,9 +21,12 @@ import { cardsField } from "./cards-field";
 // GetDocument-Pfade erzeugt ("content/german/das-denkmal/_index.md" ohne
 // /projekt/). Klare, nicht-überlappende Match-Patterns vermeiden das.
 //
-// Die `_index.md`-Section-Landings (Top-Level wie auch in Sub-Foldern)
-// gehören weiterhin ausschließlich zur section_intro-Collection
-// (themen-intro.ts) — beide Collections hier schließen `_index` aus.
+// _index.md-Zuordnung:
+//   - Top-Level-Landings (projekt/_index, news/_index, …) und die
+//     Themen-Filterseiten → section_intro (themen-intro.ts)
+//   - Sub-Section-Landings (projekt/das-denkmal/_index, …) → die
+//     "<name>_sub"-Collection hier (volles Feld-Set, editierbar)
+// Die Match-Patterns sind disjunkt, kein File gehört zwei Collections.
 // Layout-/Build-Defaults pushen wir Hugo-seitig via cascade in
 // config/_default/hugo.toml.
 //
@@ -131,16 +134,20 @@ function makeSectionCollection(name: string, label: string): Collection {
   };
 }
 
-// Sub-Unterseiten: Dateien genau eine Ebene tief (Sub-Section-Ordner).
-// include "*/*" trifft <ordner>/<datei>, exclude "*/_index" lässt die
-// Sub-Section-Landings bei section_intro — keine Pfad-Überlappung.
+// Sub-Unterseiten: alle Dateien genau eine Ebene tief (Sub-Section-
+// Ordner), inklusive der Sub-Section-Landing `<sub>/_index.md`.
+//
+// Kein exclude auf "*/_index": section_intro matched seit der
+// {*,themen/*}/_index-Einschränkung die Sub-Section-Landings nicht
+// mehr, also gibt es hier keine Pfad-Überlappung — und die
+// Sub-Section-Landing wird genau hier mit vollem Feld-Set editierbar.
 function makeSubSectionCollection(name: string, label: string): Collection {
   return {
     name: `${name}_sub`,
     label,
     path: `content/german/${name}`,
     format: "md",
-    match: { include: "*/*", exclude: "*/_index" },
+    match: { include: "*/*" },
     ui: {
       // Slug bleibt flach; in welchen Sub-Ordner die Datei kommt,
       // bestimmt der Datei-Browser bzw. der bestehende Sub-Folder.
