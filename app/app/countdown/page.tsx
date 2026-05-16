@@ -45,7 +45,7 @@ export default function Countdown() {
   const done = parts?.done === true;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-6 text-center sm:py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-transparent px-4 py-6 text-center sm:py-12">
       <style>{flapCss}</style>
 
       <p className="mb-5 text-xs uppercase tracking-[0.3em] text-zinc-500 sm:mb-8 sm:text-sm">
@@ -174,6 +174,12 @@ function Flap({ digit }: { digit: string }) {
 // CSS für die Klappkarten. Inline gehalten, damit die Komponente in sich
 // abgeschlossen bleibt und nicht in globals.css streut.
 const flapCss = `
+/* Seite vollständig transparent (für Overlay/Embed, z.B. iframe oder
+   Browser-Source). Überschreibt den Body-Gradient aus globals.css und
+   wirkt nur, solange diese Route gemountet ist — andere Next-Seiten
+   (z.B. /anleitung) bleiben unverändert. */
+html,body{background:transparent !important;}
+
 .flap-card{
   position:relative;
   width:3.25rem;
