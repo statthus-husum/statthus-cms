@@ -25,15 +25,24 @@ if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ] && [ -n "$GITHUB_OWNER" ] && [ -n "$GI
        "https://x-access-token:${GITHUB_PERSONAL_ACCESS_TOKEN}@github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git" \
        "$TEMP_DIR"; then
 
-    # Ziel-Verzeichnisse leeren, dann die fünf Tina-Collections selektiv kopieren
+    # Ziel-Verzeichnis leeren, dann die Tina-Collections selektiv kopieren.
     rm -rf "$CONTENT_DIR"
-    mkdir -p "$CONTENT_DIR/german" "$CONTENT_DIR/users"
+    mkdir -p "$CONTENT_DIR"
     for p in $TINA_PATHS; do
       if [ -d "$TEMP_DIR/$p" ]; then
         # Zielpfad ohne führendes "content/"
         target="$CONTENT_DIR/${p#content/}"
-        mkdir -p "$(dirname "$target")"
-        cp -r "$TEMP_DIR/$p" "$target"
+        # WICHTIG: target anlegen und NUR den INHALT der Quelle ("/.")
+        # hineinkopieren. `cp -r src dest` legt bei bereits existierendem
+        # dest ein verschachteltes dest/src an. Genau das hat hier
+        # content/users -> content/users/users/index.json erzeugt
+        # (weil $CONTENT_DIR/users vorab via mkdir existierte) und damit
+        # den tinacms-authjs-Login zerstört: der Resolver sucht
+        # content/users/index.json, indiziert war aber
+        # content/users/users/index.json. Die "$src/." -Form kopiert
+        # immer den Inhalt und ist unabhängig davon, ob target existiert.
+        mkdir -p "$target"
+        cp -r "$TEMP_DIR/$p/." "$target/"
       fi
     done
 
