@@ -570,10 +570,15 @@
  * Sidebar-Gruppierung: klappbare Köpfe für Collection-Gruppen.
  *
  * TinaCMS hat kein natives Collection-Grouping — jede Collection ist ein
- * flacher Sidebar-Link. Drei logische Gruppen werden zusammengefasst:
- *   - "Kopftexte"   : alle *_intro (6 Section-Landings + themen_intro)
- *   - "Abschnitte"  : projekt | member | help (Top-Level je Section)
- *   - "Unterseiten" : alle *_sub (eine Ebene tiefer)
+ * flacher Sidebar-Link. Sechs THEMEN-Gruppen werden zusammengefasst
+ * (Reihenfolge je Thema: Kopftext → Abschnitte → Unterseiten):
+ *   - "News"           : news, news_intro
+ *   - "Veranstaltungen": event, event_intro
+ *   - "Bewohner:innen" : person, people_intro
+ *   - "Projekt"        : projekt_intro, projekt, projekt_sub
+ *   - "Mitwohnen"      : member_intro, member, member_sub
+ *   - "Unterstützen"   : help_intro, help, help_sub
+ * Ungruppiert (bewusst, am Ende): themen_intro, user.
  * Voraussetzung: jede Gruppe ist in config.tsx ZUSAMMENHÄNGEND
  * registriert (Sidebar-Reihenfolge = Array-Reihenfolge), sonst umfasst
  * ein Header nicht alle Mitglieder am Stück.
@@ -588,24 +593,51 @@
  *   - Zustand je Gruppe in localStorage, Default = eingeklappt
  */
 (function () {
+  // WICHTIG zum Suffix: TinaCMS rendert die Sidebar-Links als
+  // "#/collections/<name>/~" (das "/~" = Root-Folder-Marker; bei offenem
+  // Dokument folgt stattdessen "/<datei>"). Die Regex darf den Namen daher
+  // NICHT ans String-Ende ankern — sonst matcht nichts und es entstehen
+  // keine Gruppen-Header. "(?:[/?].*)?$" erlaubt optionales "/…" oder "?…".
+  // Gruppen sind THEMA-basiert (nicht Typ-basiert): die config.tsx-
+  // Reihenfolge clustert je Thema, daher matcht jede Regex genau die
+  // Collection-Namen eines Themas. themen_intro + user matchen bewusst
+  // keine Gruppe → bleiben ungruppiert.
   var GROUPS = [
     {
-      key: "statthus.group.kopftexte",
-      id: "statthus-group-kopftexte",
-      label: "Kopftexte",
-      re: /^#\/collections\/[a-z0-9]+_intro(\?.*)?$/,
+      key: "statthus.group.news",
+      id: "statthus-group-news",
+      label: "News",
+      re: /^#\/collections\/news(?:_intro)?(?:[/?].*)?$/,
     },
     {
-      key: "statthus.group.abschnitte",
-      id: "statthus-group-abschnitte",
-      label: "Abschnitte",
-      re: /^#\/collections\/(projekt|member|help)(\?.*)?$/,
+      key: "statthus.group.veranstaltungen",
+      id: "statthus-group-veranstaltungen",
+      label: "Veranstaltungen",
+      re: /^#\/collections\/event(?:_intro)?(?:[/?].*)?$/,
     },
     {
-      key: "statthus.group.unterseiten",
-      id: "statthus-group-unterseiten",
-      label: "Unterseiten",
-      re: /^#\/collections\/[a-z0-9]+_sub(\?.*)?$/,
+      key: "statthus.group.bewohner",
+      id: "statthus-group-bewohner",
+      label: "Bewohner:innen",
+      re: /^#\/collections\/(?:person|people_intro)(?:[/?].*)?$/,
+    },
+    {
+      key: "statthus.group.projekt",
+      id: "statthus-group-projekt",
+      label: "Projekt",
+      re: /^#\/collections\/projekt(?:_intro|_sub)?(?:[/?].*)?$/,
+    },
+    {
+      key: "statthus.group.mitwohnen",
+      id: "statthus-group-mitwohnen",
+      label: "Mitwohnen",
+      re: /^#\/collections\/member(?:_intro|_sub)?(?:[/?].*)?$/,
+    },
+    {
+      key: "statthus.group.unterstuetzen",
+      id: "statthus-group-unterstuetzen",
+      label: "Unterstützen",
+      re: /^#\/collections\/help(?:_intro|_sub)?(?:[/?].*)?$/,
     },
   ];
   var CARET_CLASS = "statthus-group-caret";

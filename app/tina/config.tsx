@@ -70,33 +70,40 @@ export default defineConfig({
 
   schema: {
     collections: [
-      TinaUserCollection,
-      EventCollection,
-      NewsCollection,
-      PersonCollection,
-      // Reihenfolge = Sidebar-Reihenfolge. Drei logische Gruppen werden
-      // von admin-tweaks.js zu klappbaren Köpfen zusammengefasst
-      // ("Kopftexte", "Abschnitte", "Unterseiten"). Jede Gruppe MUSS
-      // hier zusammenhängend stehen, damit ein Gruppen-Header alle
-      // Mitglieder am Stück umfasst (sonst stehen sie verschachtelt).
+      // Reihenfolge = Sidebar-Reihenfolge. admin-tweaks.js fasst je
+      // THEMA zu einem klappbaren Kopf zusammen (News, Veranstaltungen,
+      // Bewohner:innen, Projekt, Mitwohnen, Unterstützen). Jede Gruppe
+      // MUSS hier ZUSAMMENHÄNGEND stehen, sonst umschließt ein Header
+      // nicht alle Mitglieder am Stück. Innerhalb der Section-Themen:
+      // Kopftext → Abschnitte → Unterseiten. Themen-Kopftexte und Users
+      // bleiben bewusst ungruppiert (am Ende). Pro-Section-Intro-
+      // Collections vermeiden den verschachtelten-Pfad-Konflikt
+      // (siehe themen-intro.ts).
       //
-      // Kopftexte (alle *_intro): je eine Collection pro Sektion, um den
-      // verschachtelten-Pfad-Konflikt zu vermeiden (themen-intro.ts).
-      ProjektIntroCollection,
-      MemberIntroCollection,
-      HelpIntroCollection,
-      EventIntroCollection,
+      // News
+      NewsCollection,
       NewsIntroCollection,
+      // Veranstaltungen
+      EventCollection,
+      EventIntroCollection,
+      // Bewohner:innen
+      PersonCollection,
       PeopleIntroCollection,
-      ThemenFilterCollection,
-      // Abschnitte (projekt | member | help): Top-Level je Section.
+      // Projekt
+      ProjektIntroCollection,
       ProjektCollection,
-      MemberCollection,
-      HelpCollection,
-      // Unterseiten (alle *_sub): eine Ebene tiefer.
       ProjektSubCollection,
+      // Mitwohnen
+      MemberIntroCollection,
+      MemberCollection,
       MemberSubCollection,
+      // Unterstützen
+      HelpIntroCollection,
+      HelpCollection,
       HelpSubCollection,
+      // Ungruppiert (am Ende)
+      ThemenFilterCollection,
+      TinaUserCollection,
     ],
   },
 });
