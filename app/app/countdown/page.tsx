@@ -16,14 +16,14 @@ type Parts = {
   done: boolean;
 };
 
-function partsFromDiff(ms: number): Parts {
-  const clamped = Math.max(0, ms);
+// Vor dem Ziel: verbleibende Zeit (Countdown). Ab dem Ziel: verstrichene
+// Zeit seit dem Spatenstich (Count-up). `ms` ist hier immer der Betrag.
+function partsFromMs(ms: number): Omit<Parts, "done"> {
   return {
-    days: Math.floor(clamped / 86_400_000),
-    hours: Math.floor((clamped % 86_400_000) / 3_600_000),
-    minutes: Math.floor((clamped % 3_600_000) / 60_000),
-    seconds: Math.floor((clamped % 60_000) / 1000),
-    done: ms <= 0,
+    days: Math.floor(ms / 86_400_000),
+    hours: Math.floor((ms % 86_400_000) / 3_600_000),
+    minutes: Math.floor((ms % 3_600_000) / 60_000),
+    seconds: Math.floor((ms % 60_000) / 1000),
   };
 }
 
@@ -32,7 +32,10 @@ export default function Countdown() {
 
   useEffect(() => {
     function tick() {
-      setParts(partsFromDiff(TARGET.getTime() - Date.now()));
+      const ms = TARGET.getTime() - Date.now();
+      const done = ms <= 0;
+      // done → ab dem Spatenstich aufwärts zählen (Betrag der Differenz)
+      setParts({ ...partsFromMs(Math.abs(ms)), done });
     }
     tick();
     const id = setInterval(tick, 1000);
@@ -46,7 +49,7 @@ export default function Countdown() {
       <style>{flapCss}</style>
 
       <p className="mb-5 text-xs uppercase tracking-[0.3em] text-zinc-500 sm:mb-8 sm:text-sm">
-        {done ? "Heute ist es soweit" : "Bis zum Spatenstich"}
+        {done ? "Seit dem ersten Spatenstich" : "Bis zum Spatenstich"}
       </p>
 
       <div className="flex flex-wrap items-start justify-center gap-3 sm:gap-5">
@@ -63,9 +66,11 @@ export default function Countdown() {
         <p className="text-base font-medium text-zinc-900 sm:text-lg">
           staTThus Neubau · Husum
         </p>
-        <p className="mt-1 text-sm text-zinc-600 sm:text-base">
-          Spatenstich am 18. Mai 2026 um 14:00 Uhr
-        </p>
+        {!done && (
+          <p className="mt-1 text-sm text-zinc-600 sm:text-base">
+            Spatenstich am 18. Mai 2026 um 14:00 Uhr
+          </p>
+        )}
         {done && (
           <p className="mt-5 text-sm uppercase tracking-[0.3em] text-amber-700 sm:mt-8">
             Wir bauen.
