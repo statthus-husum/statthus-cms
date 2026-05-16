@@ -22,6 +22,22 @@
         # X-Frame-Options bewusst NICHT auf DENY gesetzt — Tina iframe-Preview braucht's.
     }
 
+    # Cache-Strategie für Tinas Admin-SPA:
+    #   - index.html + /admin-tweaks.js sind NICHT gehasht. Werden sie
+    #     gecacht, zeigt index.html nach einem Deploy auf veraltete
+    #     gehashte Bundles → eingefrorener Menübaum. Darum no-store.
+    #   - /admin/assets/index-<hash>.js ändern den Namen pro Build,
+    #     dürfen also unbegrenzt (immutable) gecacht werden.
+    @admin_nocache {
+        path /admin /admin/ /admin/index.html /admin-tweaks.js
+    }
+    header @admin_nocache Cache-Control "no-store"
+
+    @admin_assets {
+        path /admin/assets/*
+    }
+    header @admin_assets Cache-Control "public, max-age=31536000, immutable"
+
     # Freigabe-App (Approval-Dashboard) auf /freigabe/* — Pfad wird gestripped,
     # die App sieht nur "/" und "/merge".
     handle_path /freigabe* {
