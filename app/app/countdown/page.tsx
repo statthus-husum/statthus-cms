@@ -29,6 +29,16 @@ function partsFromMs(ms: number): Omit<Parts, "done"> {
 
 export default function Countdown() {
   const [parts, setParts] = useState<Parts | null>(null);
+  // Embed-Hinweis: ?bg=dark → helle Schrift (z.B. im dunklen Website-
+  // Footer). Default unverändert: dunkle Schrift für helle/unbekannte
+  // Flächen. Die Flip-Karten sind ohnehin dunkel und kontraststark.
+  const [onDark, setOnDark] = useState(false);
+
+  useEffect(() => {
+    setOnDark(
+      new URLSearchParams(window.location.search).get("bg") === "dark",
+    );
+  }, []);
 
   useEffect(() => {
     function tick() {
@@ -43,12 +53,18 @@ export default function Countdown() {
   }, []);
 
   const done = parts?.done === true;
+  const cMuted = onDark ? "text-zinc-300" : "text-zinc-500";
+  const cStrong = onDark ? "text-white" : "text-zinc-900";
+  const cSub = onDark ? "text-zinc-300" : "text-zinc-600";
+  const cAccent = onDark ? "text-amber-400" : "text-amber-700";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-transparent px-4 py-6 text-center sm:py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-transparent px-4 py-6 text-center">
       <style>{flapCss}</style>
 
-      <p className="mb-5 text-xs uppercase tracking-[0.3em] text-zinc-500 sm:mb-8 sm:text-sm">
+      <p
+        className={`mb-5 text-xs uppercase tracking-[0.3em] ${cMuted} sm:mb-8 sm:text-sm`}
+      >
         {done ? "Seit dem ersten Spatenstich" : "Bis zum Spatenstich"}
       </p>
 
@@ -63,16 +79,18 @@ export default function Countdown() {
       </div>
 
       <div className="mt-6 max-w-md sm:mt-12">
-        <p className="text-base font-medium text-zinc-900 sm:text-lg">
+        <p className={`text-base font-medium ${cStrong} sm:text-lg`}>
           staTThus Neubau · Husum
         </p>
         {!done && (
-          <p className="mt-1 text-sm text-zinc-600 sm:text-base">
+          <p className={`mt-1 text-sm ${cSub} sm:text-base`}>
             Spatenstich am 18. Mai 2026 um 14:00 Uhr
           </p>
         )}
         {done && (
-          <p className="mt-5 text-sm uppercase tracking-[0.3em] text-amber-700 sm:mt-8">
+          <p
+            className={`mt-5 text-sm uppercase tracking-[0.3em] ${cAccent} sm:mt-8`}
+          >
             Wir bauen.
           </p>
         )}
@@ -108,14 +126,15 @@ function Group({
   );
 }
 
-// Höhe matcht die Karten-Höhe pro Breakpoint, damit die zwei Punkte
-// vertikal mittig auf der Karten-Trennlinie sitzen — nicht zwischen
-// Karten und Labels.
+// Höhe = Karten-Höhe (5rem), damit die zwei Punkte vertikal mittig auf
+// der Karten-Trennlinie sitzen. Skaliert wie alles über die fluide
+// Wurzel-Schriftgröße; ab Viewport ≥640px sichtbar (im schmalen Footer
+// also ausgeblendet — dort steht die Uhr kompakt ohne Trenner).
 function Separator() {
   return (
     <div
       aria-hidden
-      className="hidden h-[5rem] flex-col items-center justify-center text-zinc-400 sm:flex sm:h-[7rem] md:h-[8.5rem]"
+      className="hidden h-[5rem] flex-col items-center justify-center text-zinc-400 sm:flex"
     >
       <span className="block text-3xl font-bold leading-none">·</span>
       <span className="mt-1.5 block text-3xl font-bold leading-none">·</span>
@@ -180,16 +199,22 @@ const flapCss = `
    (z.B. /anleitung) bleiben unverändert. */
 html,body{background:transparent !important;}
 
+/* Fluid: ALLE Maße sind rem/em-basiert, daher skaliert die ganze Uhr
+   proportional mit der (iframe-)Breite, sobald die Wurzel-Schriftgröße
+   an die Viewportbreite gekoppelt ist. Das ist der EINZIGE Größen-
+   Regler fürs Footer-Embed — clamp(min, vw, max) bei Bedarf anpassen.
+   Die festen Breakpoint-Sprünge entfallen dadurch (eine einzige
+   proportionale Spezifikation, die in jeder iframe-Größe passt). */
+html{font-size:clamp(5px,3vw,15px);}
+
 .flap-card{
   position:relative;
   width:3.25rem;
   height:5rem;
-  perspective:240px;
+  perspective:14.8rem;
   border-radius:.4rem;
   box-shadow:0 10px 24px -10px rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.08);
 }
-@media(min-width:640px){.flap-card{width:4.5rem;height:7rem;perspective:300px}}
-@media(min-width:768px){.flap-card{width:5.5rem;height:8.5rem;perspective:360px}}
 
 .flap-half{
   position:absolute;
@@ -224,8 +249,6 @@ html,body{background:transparent !important;}
   font-size:5rem;
   line-height:1;
 }
-@media(min-width:640px){.flap-glyph{font-size:7rem}}
-@media(min-width:768px){.flap-glyph{font-size:8.5rem}}
 
 .flap-flip-down{
   z-index:2;
