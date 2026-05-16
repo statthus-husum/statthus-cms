@@ -113,13 +113,49 @@ Definiert in [`app/tina/config.tsx`](app/tina/config.tsx) und [`app/tina/collect
 
 ## Backup
 
-MongoDB enthält nur den Cache-Index — Source-of-Truth ist Git. Bei einem totalen Verlust:
-1. neue VM via `tofu apply` aufbauen
-2. `.env` neu setzen
-3. `docker compose up -d --build`
-4. Tina indexiert beim ersten Start aus dem GitHub-Repo neu (~30 s)
+**Für Inhalte gilt:** MongoDB ist nur Cache-Index, Source-of-Truth ist Git.
+Inhalte reindexieren beim Start aus dem GitHub-Repo neu (~30 s).
 
-Optional zusätzliche Backups: `mongodump` als nächtlicher Cron-Job, Output auf Hetzner Object Storage (S3-kompatibel).
+**Für Editor-Accounts gilt das NICHT.** Die `users`-Collection wird trotz
+Pfad `content/users/index.json` **nie nach Git committet** — sie lebt
+ausschließlich als Datalayer-App-Data in MongoDB
+(`_appDatauser~content/users/index.json`). Folge: ein Mongo-Wipe,
+`docker compose down -v` oder ein VM-Neuaufbau **löscht alle Logins**
+unwiederbringlich (genau so ist im Mai 2026 der komplette Login-Ausfall
+entstanden — siehe `LOGIN-OUTAGE-PROTOKOLL.md`).
+
+Deshalb sichert der **`backup`-Container** (siehe `backup/`, Teil des
+docker-compose-Stacks) den User-Store regelmäßig nach Hetzner Object
+Storage:
+
+- Bucket + S3-Credentials werden in **statthus-infra** provisioniert
+  (`tofu output backup_env_hint` → in `/opt/cms/.env` eintragen, plus
+  `S3_ACCESS_KEY`/`S3_SECRET_KEY`).
+- Intervall/Retention/Verschlüsselung über `BACKUP_*` in der `.env`.
+- Läuft automatisch mit `docker compose up -d` (auch nach VM-Neuaufbau).
+
+**Restore** (Accounts nach Datenverlust zurückholen):
+
+```bash
+cd /opt/cms
+docker compose stop tina freigabe
+docker compose run --rm backup restore.sh        # neuester Dump
+#  oder gezielt:  docker compose run --rm backup restore.sh <objektname>
+docker compose up -d tina freigabe
+# Login in Inkognito testen
+```
+
+> ✅ **Verifiziert (2026-05-16):** Accounts **überstehen** `docker compose
+> restart` *und* `docker compose up -d --build tina`. Der Entrypoint
+> (`rm -rf /app/content` + Re-Clone + `npx tinacms build`) reindexiert nur
+> Content; der App-Data-User-Store (`_appDatauser~`) in MongoDB bleibt
+> unangetastet. Accounts gehen **nur** verloren, wenn das Mongo-Daten-Volume
+> selbst zerstört wird: Mongo-Wipe, `docker compose down -v` oder
+> VM-Neuaufbau mit frischem Volume. Genau diesen Fall deckt das Backup ab —
+> ein **Restore-on-boot ist daher NICHT nötig** (Backup-only genügt).
+
+Totaler VM-Verlust: neue VM via `tofu apply`, `.env` neu setzen
+(inkl. `S3_*`), `docker compose up -d --build`, dann `restore.sh`.
 
 ## Lokale Entwicklung
 

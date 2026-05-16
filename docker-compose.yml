@@ -81,6 +81,35 @@ services:
     networks:
       - statthus
 
+  # Sichert den NUR in Mongo lebenden Tina-User-Store (Editor-Accounts)
+  # verschlüsselt nach Hetzner Object Storage. Ohne diesen Job vernichtet
+  # ein Mongo-Wipe / `down -v` / VM-Neuaufbau alle Logins. Bucket +
+  # S3-Credentials kommen aus statthus-infra (in /opt/cms/.env eintragen).
+  backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    image: statthus-cms-backup:local
+    container_name: statthus-backup
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      - MONGO_USER=${MONGO_USER:-tina}
+      - MONGO_PASS=${MONGO_PASS}
+      - MONGODB_DBNAME=${MONGODB_DBNAME:-tinacms}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION:-fsn1}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - BACKUP_INTERVAL=${BACKUP_INTERVAL:-21600}
+      - BACKUP_RETENTION=${BACKUP_RETENTION:-30}
+      - BACKUP_ENC_PASSPHRASE=${BACKUP_ENC_PASSPHRASE:-}
+    networks:
+      - statthus
+
   mongo:
     image: mongo:7
     container_name: statthus-mongo

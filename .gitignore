@@ -4,3 +4,7 @@
 node_modules/
 .next/
 .DS_Store
+
+# Internes Incident-Handoff mit Betriebs-Secrets (Mongo-Pass etc.) —
+# bewusst NICHT im Repo. Lebt nur lokal auf der Arbeitsmaschine.
+LOGIN-OUTAGE-PROTOKOLL.md
