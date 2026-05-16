@@ -567,62 +567,79 @@
 })();
 
 /*
- * Sidebar-Gruppierung "Kopftexte".
+ * Sidebar-Gruppierung: klappbare Köpfe für Collection-Gruppen.
  *
  * TinaCMS hat kein natives Collection-Grouping — jede Collection ist ein
- * flacher Sidebar-Link. Die sechs Section-Kopftext-Collections
- * (projekt_intro, member_intro, help_intro, event_intro, news_intro,
- * people_intro) plus themen_intro (alle Slugs enden auf "_intro", kein
- * anderer Collection-Slug tut das) blähen die Sidebar auf. Hier fassen
- * wir alle sieben unter einem ausklappbaren "Kopftexte"-Kopf zusammen
- * (themen_intro als letzter Eintrag — hat zwar selbst Unterordner,
- * gehört semantisch aber zu den Kopftexten).
+ * flacher Sidebar-Link. Drei logische Gruppen werden zusammengefasst:
+ *   - "Kopftexte"   : alle *_intro (6 Section-Landings + themen_intro)
+ *   - "Abschnitte"  : projekt | member | help (Top-Level je Section)
+ *   - "Unterseiten" : alle *_sub (eine Ebene tiefer)
+ * Voraussetzung: jede Gruppe ist in config.tsx ZUSAMMENHÄNGEND
+ * registriert (Sidebar-Reihenfolge = Array-Reihenfolge), sonst umfasst
+ * ein Header nicht alle Mitglieder am Stück.
  *
- * Bewusst nicht-invasiv: wir reparenten KEINE React-Knoten (Tina würde
- * sie beim Re-Render zurücksetzen). Stattdessen — analog zum mkdir/
- * rmdir-Button-Pattern oben:
- *   - ein eigener, nicht von React verwalteter Header wird vor den ersten
- *     Kopftext-Link injiziert (Observer re-injiziert nach Re-Renders)
+ * Bewusst nicht-invasiv: KEINE React-Knoten reparenten (Tina würde sie
+ * beim Re-Render zurücksetzen). Pro Gruppe — analog zum mkdir/rmdir-
+ * Button-Pattern oben:
+ *   - ein eigener, nicht von React verwalteter Header wird vor die erste
+ *     Zeile injiziert (Observer re-injiziert nach Re-Renders)
  *   - Ein-/Ausklappen via row.style.display, per Tick re-appliziert
  *     (setzt nur bei echter Änderung → kein Observer-Endlosloop)
- *   - Zustand in localStorage, Default = eingeklappt (Sidebar entlasten)
+ *   - Zustand je Gruppe in localStorage, Default = eingeklappt
  */
 (function () {
-  var STATE_KEY = "statthus.kopftexte.collapsed";
-  var HEADER_ID = "statthus-kopftexte-header";
-  var CARET_CLASS = "statthus-kopftexte-caret";
-  var ROW_RE = /^#\/collections\/([a-z0-9]+_intro)(\?.*)?$/;
+  var GROUPS = [
+    {
+      key: "statthus.group.kopftexte",
+      id: "statthus-group-kopftexte",
+      label: "Kopftexte",
+      re: /^#\/collections\/[a-z0-9]+_intro(\?.*)?$/,
+    },
+    {
+      key: "statthus.group.abschnitte",
+      id: "statthus-group-abschnitte",
+      label: "Abschnitte",
+      re: /^#\/collections\/(projekt|member|help)(\?.*)?$/,
+    },
+    {
+      key: "statthus.group.unterseiten",
+      id: "statthus-group-unterseiten",
+      label: "Unterseiten",
+      re: /^#\/collections\/[a-z0-9]+_sub(\?.*)?$/,
+    },
+  ];
+  var CARET_CLASS = "statthus-group-caret";
 
-  function isCollapsed() {
+  function isCollapsed(key) {
     try {
-      return localStorage.getItem(STATE_KEY) !== "0"; // Default: collapsed
+      return localStorage.getItem(key) !== "0"; // Default: collapsed
     } catch (e) {
       return true;
     }
   }
-  function setCollapsed(v) {
+  function setCollapsed(key, v) {
     try {
-      localStorage.setItem(STATE_KEY, v ? "1" : "0");
+      localStorage.setItem(key, v ? "1" : "0");
     } catch (e) {
-      /* localStorage gesperrt — Zustand dann nur für diese Session */
+      /* localStorage gesperrt — Zustand nur für diese Session */
     }
   }
 
-  // Alle Kopftext-Collection-Zeilen in Sidebar-Reihenfolge. Wir hängen
-  // an die <li>-Zeile (falls vorhanden), sonst an den <a> selbst.
-  function introRows() {
+  // Collection-Zeilen einer Gruppe in Sidebar-Reihenfolge. Wir hängen an
+  // die <li>-Zeile (falls vorhanden), sonst an den <a> selbst.
+  function groupRows(re) {
     var rows = [];
     var links = document.querySelectorAll('a[href^="#/collections/"]');
     for (var i = 0; i < links.length; i++) {
-      if (!ROW_RE.test(links[i].getAttribute("href") || "")) continue;
+      if (!re.test(links[i].getAttribute("href") || "")) continue;
       rows.push(links[i].closest("li") || links[i]);
     }
     return rows;
   }
 
-  function makeHeader(sameTag) {
+  function makeHeader(group, sameTag) {
     var el = document.createElement(sameTag === "LI" ? "li" : "div");
-    el.id = HEADER_ID;
+    el.id = group.id;
     el.style.cssText = [
       "display:flex",
       "align-items:center",
@@ -642,35 +659,35 @@
     caret.style.cssText =
       "display:inline-block;transition:transform .12s;font-size:.7rem";
     var label = document.createElement("span");
-    label.textContent = "Kopftexte";
+    label.textContent = group.label;
     el.appendChild(caret);
     el.appendChild(label);
     el.addEventListener("click", function () {
-      setCollapsed(!isCollapsed());
-      apply();
+      setCollapsed(group.key, !isCollapsed(group.key));
+      applyGroup(group);
     });
     return el;
   }
 
-  function apply() {
-    var rows = introRows();
-    var header = document.getElementById(HEADER_ID);
+  function applyGroup(group) {
+    var rows = groupRows(group.re);
+    var header = document.getElementById(group.id);
     if (!rows.length) {
       // Nicht auf einer Seite mit Sidebar-Liste — Header entfernen.
       if (header) header.remove();
       return;
     }
     var first = rows[0];
-    if (!header) header = makeHeader(first.tagName);
-    // Header direkt vor den ersten Kopftext-Eintrag (re)positionieren —
-    // nur wenn nötig, sonst löst das eine Observer-Runde aus.
+    if (!header) header = makeHeader(group, first.tagName);
+    // Header direkt vor die erste Zeile (re)positionieren — nur wenn
+    // nötig, sonst löst das eine Observer-Runde aus.
     if (
       header.parentNode !== first.parentNode ||
       header.nextSibling !== first
     ) {
       first.parentNode.insertBefore(header, first);
     }
-    var collapsed = isCollapsed();
+    var collapsed = isCollapsed(group.key);
     var caret = header.querySelector("." + CARET_CLASS);
     if (caret) {
       caret.style.transform = collapsed ? "" : "rotate(90deg)";
@@ -681,27 +698,31 @@
     }
   }
 
+  function applyAll() {
+    for (var i = 0; i < GROUPS.length; i++) applyGroup(GROUPS[i]);
+  }
+
   var pending = false;
   function schedule() {
     if (pending) return;
     pending = true;
     (window.requestAnimationFrame || setTimeout)(function () {
       pending = false;
-      apply();
+      applyAll();
     }, 16);
   }
 
   window.addEventListener("hashchange", schedule);
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
-      apply();
+      applyAll();
       new MutationObserver(schedule).observe(document.documentElement, {
         childList: true,
         subtree: true,
       });
     });
   } else {
-    apply();
+    applyAll();
     new MutationObserver(schedule).observe(document.documentElement, {
       childList: true,
       subtree: true,

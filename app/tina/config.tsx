@@ -54,11 +54,14 @@ export default defineConfig({
       EventCollection,
       NewsCollection,
       PersonCollection,
-      // Kopftexte sollen vor den Abschnitt-Collections in der Sidebar
-      // erscheinen — die Reihenfolge in diesem Array bestimmt die
-      // Anzeige in Tinas Admin-Menü. Eine Collection pro Sektion, um
-      // den verschachtelten-Pfad-Konflikt mit den Abschnitt-Collections
-      // zu vermeiden (siehe collections/themen-intro.ts).
+      // Reihenfolge = Sidebar-Reihenfolge. Drei logische Gruppen werden
+      // von admin-tweaks.js zu klappbaren Köpfen zusammengefasst
+      // ("Kopftexte", "Abschnitte", "Unterseiten"). Jede Gruppe MUSS
+      // hier zusammenhängend stehen, damit ein Gruppen-Header alle
+      // Mitglieder am Stück umfasst (sonst stehen sie verschachtelt).
+      //
+      // Kopftexte (alle *_intro): je eine Collection pro Sektion, um den
+      // verschachtelten-Pfad-Konflikt zu vermeiden (themen-intro.ts).
       ProjektIntroCollection,
       MemberIntroCollection,
       HelpIntroCollection,
@@ -66,11 +69,13 @@ export default defineConfig({
       NewsIntroCollection,
       PeopleIntroCollection,
       ThemenFilterCollection,
+      // Abschnitte (projekt | member | help): Top-Level je Section.
       ProjektCollection,
-      ProjektSubCollection,
       MemberCollection,
-      MemberSubCollection,
       HelpCollection,
+      // Unterseiten (alle *_sub): eine Ebene tiefer.
+      ProjektSubCollection,
+      MemberSubCollection,
       HelpSubCollection,
     ],
   },
