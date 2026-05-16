@@ -72,11 +72,12 @@ export default defineConfig({
     collections: [
       // Reihenfolge = Sidebar-Reihenfolge. admin-tweaks.js fasst je
       // THEMA zu einem klappbaren Kopf zusammen (News, Veranstaltungen,
-      // Bewohner:innen, Projekt, Mitwohnen, Unterstützen). Jede Gruppe
-      // MUSS hier ZUSAMMENHÄNGEND stehen, sonst umschließt ein Header
-      // nicht alle Mitglieder am Stück. Innerhalb der Section-Themen:
-      // Kopftext → Abschnitte → Unterseiten. Themen-Kopftexte und Users
-      // bleiben bewusst ungruppiert (am Ende). Pro-Section-Intro-
+      // Bewohner:innen, Projekt, Mitwohnen, Unterstützen, Weiteres).
+      // Jede Gruppe MUSS hier ZUSAMMENHÄNGEND stehen, sonst umschließt
+      // ein Header nicht alle Mitglieder am Stück. Innerhalb der
+      // Section-Themen: Kopftext → Abschnitte → Unterseiten.
+      // Themen-Kopftexte bildet allein die Gruppe „Weiteres"; nur Users
+      // bleibt bewusst ungruppiert (ganz am Ende). Pro-Section-Intro-
       // Collections vermeiden den verschachtelten-Pfad-Konflikt
       // (siehe themen-intro.ts).
       //
@@ -101,8 +102,9 @@ export default defineConfig({
       HelpIntroCollection,
       HelpCollection,
       HelpSubCollection,
-      // Ungruppiert (am Ende)
+      // „Weiteres" (nur Themen-Kopftexte)
       ThemenFilterCollection,
+      // Ungruppiert (ganz am Ende)
       TinaUserCollection,
     ],
   },

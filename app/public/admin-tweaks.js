@@ -578,7 +578,8 @@
  *   - "Projekt"        : projekt_intro, projekt, projekt_sub
  *   - "Mitwohnen"      : member_intro, member, member_sub
  *   - "Unterstützen"   : help_intro, help, help_sub
- * Ungruppiert (bewusst, am Ende): themen_intro, user.
+ *   - "Weiteres"       : themen_intro (Themen-Kopftexte)
+ * Ungruppiert (bewusst, ganz am Ende): user.
  * Voraussetzung: jede Gruppe ist in config.tsx ZUSAMMENHÄNGEND
  * registriert (Sidebar-Reihenfolge = Array-Reihenfolge), sonst umfasst
  * ein Header nicht alle Mitglieder am Stück.
@@ -638,6 +639,14 @@
       id: "statthus-group-unterstuetzen",
       label: "Unterstützen",
       re: /^#\/collections\/help(?:_intro|_sub)?(?:[/?].*)?$/,
+    },
+    {
+      key: "statthus.group.weiteres",
+      id: "statthus-group-weiteres",
+      label: "Weiteres",
+      // Aktuell nur themen_intro ("Themen-Kopftexte") — eigene Gruppe,
+      // damit die Collection nicht verwaist unten herumsteht.
+      re: /^#\/collections\/themen_intro(?:[/?].*)?$/,
     },
   ];
   var CARET_CLASS = "statthus-group-caret";
