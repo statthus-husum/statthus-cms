@@ -16,16 +16,18 @@ import { cardsField } from "./cards-field";
 //                                        architekturgeschichtliche-bedeutung.md
 //
 // Bewusst zwei getrennte Collections statt rekursivem Matching in einer:
-// ein "**/*"-Include hatte die flachen Einträge verschwinden lassen und
-// über die Pfad-Überlappung mit section_intro (Kopftexte) malformte
-// GetDocument-Pfade erzeugt ("content/german/das-denkmal/_index.md" ohne
-// /projekt/). Klare, nicht-überlappende Match-Patterns vermeiden das.
+// ein "**/*"-Include hatte die flachen Einträge verschwinden lassen.
+// Klare, nicht-überlappende Match-Patterns am selben Pfad vermeiden den
+// "Unable to find record"-Bug durch verschachtelte Collection-Pfade.
 //
-// _index.md-Zuordnung:
-//   - Top-Level-Landings (projekt/_index, news/_index, …) und die
-//     Themen-Filterseiten → section_intro (themen-intro.ts)
+// _index.md-Zuordnung (drei disjunkte Collections am selben Pfad
+// content/german/<name>):
+//   - Top-Level-Landing  <name>/_index      → "<name>_intro"-Kopftext-
+//     Collection (themen-intro.ts, match.include "_index")
+//   - Themen-Filterseiten themen/<term>/_index → themen_intro
 //   - Sub-Section-Landings (projekt/das-denkmal/_index, …) → die
-//     "<name>_sub"-Collection hier (volles Feld-Set, editierbar)
+//     "<name>_sub"-Collection hier (match.include "*/*", volles
+//     Feld-Set, editierbar)
 // Die Match-Patterns sind disjunkt, kein File gehört zwei Collections.
 // Layout-/Build-Defaults pushen wir Hugo-seitig via cascade in
 // config/_default/hugo.toml.
@@ -126,7 +128,7 @@ function makeSectionCollection(name: string, label: string): Collection {
     // include "*" = NUR genau eine Pfad-Ebene (Dateien direkt im
     // Section-Ordner). Ohne include rekursiert Tina und zeigt auch
     // Sub-Folder-Inhalte — die gehören aber in die *_sub-Collection.
-    // exclude "_index": projekt/_index.md → section_intro.
+    // exclude "_index": projekt/_index.md → <name>_intro (Kopftext).
     match: { include: "*", exclude: "_index" },
     ui: {
       filename: {
@@ -140,9 +142,9 @@ function makeSectionCollection(name: string, label: string): Collection {
 // Sub-Unterseiten: alle Dateien genau eine Ebene tief (Sub-Section-
 // Ordner), inklusive der Sub-Section-Landing `<sub>/_index.md`.
 //
-// Kein exclude auf "*/_index": section_intro matched seit der
-// {*,themen/*}/_index-Einschränkung die Sub-Section-Landings nicht
-// mehr, also gibt es hier keine Pfad-Überlappung — und die
+// Kein exclude auf "*/_index": die <name>_intro-Kopftext-Collection
+// matched nur das top-level <name>/_index (match.include "_index"),
+// nicht die Sub-Section-Landings — keine Pfad-Überlappung. Die
 // Sub-Section-Landing wird genau hier mit vollem Feld-Set editierbar.
 function makeSubSectionCollection(name: string, label: string): Collection {
   return {

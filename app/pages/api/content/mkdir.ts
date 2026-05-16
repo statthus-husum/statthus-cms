@@ -2,13 +2,19 @@
 // an, indem zwei Dokumente direkt über das @tinacms/datalayer-`database`-
 // Objekt geschrieben werden:
 //
-//   1. `<slug>/_index.md`   — Section-Landing für Hugo, sonst 404 auf
-//      `/projekt/<slug>/`. Liegt schema-seitig in der section_intro-
-//      Collection (Kopftexte), die `**/_index` indiziert.
-//   2. `<slug>/neuer-eintrag.md` — Sichtbarer Platzhalter im Listing der
-//      projekt/member/help-Collection, damit der Ordner dort überhaupt
-//      auftaucht (die Collection schließt `**/_index` per `match.exclude`
-//      aus, weil das zur section_intro gehört).
+//   1. `<slug>/_index.md`   — Sub-Section-Landing für Hugo, sonst 404
+//      auf `/projekt/<slug>/`.
+//   2. `<slug>/neuer-eintrag.md` — Sichtbarer Platzhalter, damit der
+//      Ordner im Listing auftaucht.
+//
+// Beide Dateien liegen zwei Ebenen tief (content/german/<collection>/
+// <slug>/…) und gehören damit schema-seitig der `<collection>_sub`-
+// Collection (pages.ts, `match.include: "*/*"`). Genau diese Collection
+// MUSS hier an `db.put` übergeben werden — sonst indiziert der
+// Datalayer das Dokument unter einer Collection, deren `match` den Pfad
+// gar nicht trifft → "Unable to find record". (Die top-level
+// Section-Landing `<collection>/_index.md` gehört dagegen der
+// `<collection>_intro`-Kopftext-Collection, nicht hier relevant.)
 //
 // `database.put(path, data, collection)` aus @tinacms/datalayer schreibt
 // in einem Rutsch MongoDB-Index UND committet via GitProvider — der
@@ -102,7 +108,7 @@ export default async function handler(
     // umstellen, wenn sie den Eintrag erst mal verstecken wollen.
     const indexResult = await putOne({
       fullPath: `${folderPath}/_index.md`,
-      collection: "section_intro",
+      collection: `${collection}_sub`,
       data: {
         title,
         description: "",
@@ -118,7 +124,7 @@ export default async function handler(
     // zeigt, würde auf die Parent-Section zurückfallen.
     const placeholderResult = await putOne({
       fullPath: `${folderPath}/neuer-eintrag.md`,
-      collection,
+      collection: `${collection}_sub`,
       data: {
         title: "Neuer Eintrag",
         weight: 10,

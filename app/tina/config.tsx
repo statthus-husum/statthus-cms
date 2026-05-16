@@ -16,7 +16,12 @@ import {
   HelpSubCollection,
 } from "./collections/pages";
 import {
-  ThemenIntroCollection,
+  ProjektIntroCollection,
+  MemberIntroCollection,
+  HelpIntroCollection,
+  EventIntroCollection,
+  NewsIntroCollection,
+  PeopleIntroCollection,
   ThemenFilterCollection,
 } from "./collections/themen-intro";
 
@@ -51,8 +56,15 @@ export default defineConfig({
       PersonCollection,
       // Kopftexte sollen vor den Abschnitt-Collections in der Sidebar
       // erscheinen — die Reihenfolge in diesem Array bestimmt die
-      // Anzeige in Tinas Admin-Menü.
-      ThemenIntroCollection,
+      // Anzeige in Tinas Admin-Menü. Eine Collection pro Sektion, um
+      // den verschachtelten-Pfad-Konflikt mit den Abschnitt-Collections
+      // zu vermeiden (siehe collections/themen-intro.ts).
+      ProjektIntroCollection,
+      MemberIntroCollection,
+      HelpIntroCollection,
+      EventIntroCollection,
+      NewsIntroCollection,
+      PeopleIntroCollection,
       ThemenFilterCollection,
       ProjektCollection,
       ProjektSubCollection,

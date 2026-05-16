@@ -1,15 +1,30 @@
 import type { Collection } from "tinacms";
 
-// Kopftexte: Kopf-/Einleitungstext der Section-Landing-Pages.
+// Kopftexte: Kopf-/Einleitungstext der Section-Landing-Pages
+// (content/german/<section>/_index.md).
 //
-// Aufgeteilt in zwei Collections wegen der unterschiedlichen Pfadtiefe
-// (Tinas Datalayer-Glob verträgt kein "**" / Brace über mehrere Ebenen
-// ohne Pfad-Bugs):
-//   section_intro  — Top-Level: content/german/<section>/_index.md
-//   themen_intro   — eine Ebene tiefer: content/german/themen/<term>/_index.md
+// WICHTIG — warum eine Collection PRO Sektion statt einer breiten:
 //
-// Hier liegt nur Titel, Kurzbeschreibung und der Body über der Liste.
-// Cards mit Links stecken in den Abschnitt-Dateien (pages.ts).
+// Eine einzelne Collection mit path "content/german" ist ein ELTERN-Pfad
+// der tieferen Section-Collections (content/german/projekt, .../member,
+// .../help). TinaCMS ordnet eine Datei der Collection mit dem LÄNGSTEN
+// passenden Pfad zu und relativiert sie gegen DEREN Wurzel. Für
+// content/german/projekt/_index.md gewinnt also content/german/projekt
+// (Projekt-Abschnitte + -Unterseiten). Deren match lehnt "_index" ab —
+// aber der Doc-Resolver hat das "projekt"-Segment schon abgeschnitten
+// und produziert "content/german/_index.md" → "Unable to find record".
+//
+// event/news/people brachen NICHT, weil dort nur EINE Collection am
+// tieferen Pfad liegt (keine Section/Sub-Aufteilung) und die Datei
+// dadurch eindeutig der Kopftext-Collection zufällt.
+//
+// Lösung: kein Eltern-Pfad mehr. Jede Sektion bekommt eine eigene,
+// exakt auf ihren Ordner gescopte Kopftext-Collection mit
+// match.include = "_index". Das ist disjunkt zu
+//   Section-Collection : include "*", exclude "_index"
+//   Sub-Collection     : include "*/*"
+// → drei Collections am selben Pfad, keine Überlappung, kein
+//   verschachtelter Pfad. (Gleiches Muster wie ThemenFilterCollection.)
 //
 // `allowedActions: create=false, delete=false` — Section-Landings sind
 // durch die Hugo-Verzeichnisstruktur fest vorgegeben.
@@ -46,37 +61,57 @@ const introFields: NonNullable<Collection["fields"]> = [
     isBody: true,
   },
 ];
-export const ThemenIntroCollection: Collection = {
-  name: "section_intro",
-  label: "Kopftexte",
-  path: "content/german",
-  format: "md",
-  // NUR Top-Level-Section-Landings, genau eine Ebene tief:
-  // about/_index, event/_index, news/_index, people/_index,
-  // projekt/_index, member/_index, help/_index, gallery/_index, …
-  //
-  // Bewusst das simple "*/_index"-Glob (genau ein Segment):
-  //  - "**/_index" hatte Tina bei tiefen Pfaden die mittlere Komponente
-  //    verschlucken lassen (content/german/der-neubau/_index.md)
-  //  - "{*,themen/*}/_index" (Brace-Expansion) wird vom Datalayer-Glob
-  //    nicht unterstützt → erratisches Matching auf content/german/_index.md
-  //
-  // Themen-Filterseiten (themen/<term>/_index) liegen tiefer und werden
-  // von der separaten themen_intro-Collection abgedeckt. Sub-Section-
-  // Landings (projekt/das-denkmal/_index) gehören zu den *_sub-Collections.
-  match: { include: "*/_index" },
-  ui: {
-    allowedActions: {
-      create: false,
-      delete: false,
+
+// Eine Kopftext-Collection für genau eine Section: nur deren
+// content/german/<name>/_index.md. match.include "_index" trifft
+// ausschließlich diese eine Datei und kollidiert mit keiner
+// Section-/Sub-Collection am selben Pfad.
+function makeSectionIntroCollection(name: string, label: string): Collection {
+  return {
+    name: `${name}_intro`,
+    label,
+    path: `content/german/${name}`,
+    format: "md",
+    match: { include: "_index" },
+    ui: {
+      allowedActions: {
+        create: false,
+        delete: false,
+      },
     },
-  },
-  fields: introFields,
-};
+    fields: introFields,
+  };
+}
+
+export const ProjektIntroCollection = makeSectionIntroCollection(
+  "projekt",
+  "Kopftext – Projekt",
+);
+export const MemberIntroCollection = makeSectionIntroCollection(
+  "member",
+  "Kopftext – Mitwohnen",
+);
+export const HelpIntroCollection = makeSectionIntroCollection(
+  "help",
+  "Kopftext – Unterstützen",
+);
+export const EventIntroCollection = makeSectionIntroCollection(
+  "event",
+  "Kopftext – Veranstaltungen",
+);
+export const NewsIntroCollection = makeSectionIntroCollection(
+  "news",
+  "Kopftext – News",
+);
+export const PeopleIntroCollection = makeSectionIntroCollection(
+  "people",
+  "Kopftext – Bewohner:innen",
+);
 
 // Themen-Filterseiten: content/german/themen/<term>/_index.md
 // (z.B. wie-wir-leben, wir-im-quartier). Eine Ebene tief vom
-// themen-Pfad → simples "*/_index"-Glob.
+// themen-Pfad → simples "*/_index"-Glob. Kein konkurrierendes
+// Collection an content/german/themen → unproblematisch.
 export const ThemenFilterCollection: Collection = {
   name: "themen_intro",
   label: "Themen-Kopftexte",

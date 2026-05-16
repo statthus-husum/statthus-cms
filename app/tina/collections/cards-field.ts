@@ -1,7 +1,8 @@
 import type { Collection } from "tinacms";
 
 // Wiederverwendbares Cards-Feld: Liste von Kacheln, die auf Ziel-Abschnitte
-// (projekt/member/help) oder Section-Landings (section_intro) verlinken.
+// (projekt/member/help) oder Section-Landings (<name>_intro-Kopftexte)
+// verlinken.
 // Kommt in den Abschnitt-Collections vor; ein leeres Cards-Array rendert
 // auf der Live-Site nichts.
 //
@@ -44,7 +45,12 @@ export const cardsField: NonNullable<Collection["fields"]>[number] = {
       description:
         "Der Abschnitt, auf den diese Card verlinken soll — wählbar aus den Projekt-, Mitwohnen- und Unterstützen-Abschnitten sowie den Section-Landings. Tina speichert den Repo-Pfad; das Hugo-Layout baut daraus die URL.",
       collections: [
-        "section_intro",
+        "projekt_intro",
+        "member_intro",
+        "help_intro",
+        "event_intro",
+        "news_intro",
+        "people_intro",
         "themen_intro",
         "projekt",
         "projekt_sub",
