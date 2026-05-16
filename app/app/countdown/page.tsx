@@ -40,6 +40,49 @@ export default function Countdown() {
     );
   }, []);
 
+  // Robustes Embed-Sizing — bewusst NICHT über CSS vw/min-h-screen:
+  // in einem iframe lösen die je nach Gerät/Browser gegen den
+  // Geräte-Viewport auf (Mobile = „herunterskalierte Desktop-Seite").
+  // Stattdessen messen wir die EIGENE Inhaltsbreite des iframes
+  // (documentElement.clientWidth, deterministisch = iframe-CSS-Breite)
+  // und leiten daraus die Wurzel-Schriftgröße ab; alle rem-Maße der
+  // Uhr skalieren dann exakt zur iframe-Box. Die resultierende
+  // Inhaltshöhe melden wir per postMessage an die einbettende Seite,
+  // die das iframe darauf einstellt (kein geratenes aspect-ratio).
+  useEffect(() => {
+    const rootEl = document.documentElement;
+    function applySize() {
+      const w = rootEl.clientWidth || window.innerWidth || 320;
+      // ~34 = Gesamtbreite der Uhr in rem; clamp hält es lesbar.
+      const fs = Math.min(15, Math.max(5, w / 34));
+      rootEl.style.fontSize = fs + "px";
+    }
+    function postHeight() {
+      const h = Math.ceil(document.body.scrollHeight);
+      window.parent.postMessage(
+        { type: "statthus-countdown-size", height: h },
+        "*",
+      );
+    }
+    function sync() {
+      applySize();
+      postHeight();
+    }
+    sync();
+    // Nach Font-/Layout-Settle nochmal melden.
+    const t1 = setTimeout(sync, 300);
+    const t2 = setTimeout(sync, 1200);
+    const ro = new ResizeObserver(sync);
+    ro.observe(rootEl);
+    window.addEventListener("resize", sync);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
+
   useEffect(() => {
     function tick() {
       const ms = TARGET.getTime() - Date.now();
@@ -59,7 +102,7 @@ export default function Countdown() {
   const cAccent = onDark ? "text-amber-400" : "text-amber-700";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-transparent px-4 py-6 text-center">
+    <main className="flex flex-col items-center justify-center overflow-hidden bg-transparent px-4 py-6 text-center">
       <style>{flapCss}</style>
 
       <p
@@ -199,13 +242,11 @@ const flapCss = `
    (z.B. /anleitung) bleiben unverändert. */
 html,body{background:transparent !important;}
 
-/* Fluid: ALLE Maße sind rem/em-basiert, daher skaliert die ganze Uhr
-   proportional mit der (iframe-)Breite, sobald die Wurzel-Schriftgröße
-   an die Viewportbreite gekoppelt ist. Das ist der EINZIGE Größen-
-   Regler fürs Footer-Embed — clamp(min, vw, max) bei Bedarf anpassen.
-   Die festen Breakpoint-Sprünge entfallen dadurch (eine einzige
-   proportionale Spezifikation, die in jeder iframe-Größe passt). */
-html{font-size:clamp(5px,3vw,15px);}
+/* Größe: ALLE Maße sind rem-basiert. Die Wurzel-Schriftgröße setzt
+   JS deterministisch aus der EIGENEN iframe-Breite (siehe useEffect
+   oben) — NICHT über vw/CSS, das im iframe gerätesabhängig bricht.
+   Kein min-h-screen: die Höhe ergibt sich aus dem Inhalt und wird
+   per postMessage an die einbettende Seite gemeldet. */
 
 .flap-card{
   position:relative;
