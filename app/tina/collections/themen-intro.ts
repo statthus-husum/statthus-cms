@@ -85,27 +85,27 @@ function makeSectionIntroCollection(name: string, label: string): Collection {
 
 export const ProjektIntroCollection = makeSectionIntroCollection(
   "projekt",
-  "Kopftext – Projekt",
+  "Projekt-Kopftext",
 );
 export const MemberIntroCollection = makeSectionIntroCollection(
   "member",
-  "Kopftext – Mitwohnen",
+  "Mitwohnen-Kopftext",
 );
 export const HelpIntroCollection = makeSectionIntroCollection(
   "help",
-  "Kopftext – Unterstützen",
+  "Unterstützen-Kopftext",
 );
 export const EventIntroCollection = makeSectionIntroCollection(
   "event",
-  "Kopftext – Veranstaltungen",
+  "Veranstaltungen-Kopftext",
 );
 export const NewsIntroCollection = makeSectionIntroCollection(
   "news",
-  "Kopftext – News",
+  "News-Kopftext",
 );
 export const PeopleIntroCollection = makeSectionIntroCollection(
   "people",
-  "Kopftext – Bewohner:innen",
+  "Bewohner:innen-Kopftext",
 );
 
 // Themen-Filterseiten: content/german/themen/<term>/_index.md

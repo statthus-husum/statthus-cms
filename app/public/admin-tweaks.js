@@ -676,7 +676,9 @@
       "display:flex",
       "align-items:center",
       "gap:.4rem",
-      "padding:.5rem .75rem",
+      // bündig links (kein linker Innenabstand) — Wunsch: Knoten weiter links
+      "padding:.5rem .75rem .5rem 0",
+      "margin:0",
       "cursor:pointer",
       "font-weight:600",
       "font-size:.75rem",
