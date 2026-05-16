@@ -38,6 +38,26 @@ export default defineConfig({
     outputFolder: "admin",
   },
 
+  // KRITISCH — nicht entfernen/erhöhen ohne den Zusammenhang zu kennen:
+  //
+  // cards-field.ts hat ein `reference`-Feld auf viele Collections; mehrere
+  // davon (projekt/member/help + *_sub) enthalten selbst wieder cardsField
+  // → rekursiver Referenz-Graph. Mit der Default-Reference-Depth expandiert
+  // TinaCMS das so tief, dass frags.gql >100 kB wird und der self-hosted
+  // Datalayer-Indexer beim "Indexing to self-hosted data layer" praktisch
+  // hängen bleibt. Folge: KEIN Record wird sauber indiziert — auch nicht
+  // content/users/index.json → tinacms-authjs kann niemanden mehr
+  // authentifizieren → kompletter Login-Ausfall (kein Schema-, Cache- oder
+  // Dateifehler, sondern dieser Referenz-Bloat).
+  //
+  // referenceDepth: 1 begrenzt die Expansion auf eine Ebene (Card-Links
+  // brauchen nur den Repo-Pfad des Ziels — das Hugo-Layout baut die URL
+  // daraus). Greift automatisch bei Dockerfile-`build` UND Entrypoint-
+  // `npx tinacms build`, da reine Config-Option.
+  client: {
+    referenceDepth: 1,
+  },
+
   // Custom Media Store: lädt unsere GitHubMediaStore-Klasse, die Bilder
   // direkt nach static/images/ im Hugo-Repo committet (siehe app/tina/
   // media-store.ts und pages/api/media/*).
