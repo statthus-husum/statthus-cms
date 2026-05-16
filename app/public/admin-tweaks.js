@@ -565,3 +565,146 @@
     });
   }
 })();
+
+/*
+ * Sidebar-Gruppierung "Kopftexte".
+ *
+ * TinaCMS hat kein natives Collection-Grouping — jede Collection ist ein
+ * flacher Sidebar-Link. Die sechs Section-Kopftext-Collections
+ * (projekt_intro, member_intro, help_intro, event_intro, news_intro,
+ * people_intro) plus themen_intro (alle Slugs enden auf "_intro", kein
+ * anderer Collection-Slug tut das) blähen die Sidebar auf. Hier fassen
+ * wir alle sieben unter einem ausklappbaren "Kopftexte"-Kopf zusammen
+ * (themen_intro als letzter Eintrag — hat zwar selbst Unterordner,
+ * gehört semantisch aber zu den Kopftexten).
+ *
+ * Bewusst nicht-invasiv: wir reparenten KEINE React-Knoten (Tina würde
+ * sie beim Re-Render zurücksetzen). Stattdessen — analog zum mkdir/
+ * rmdir-Button-Pattern oben:
+ *   - ein eigener, nicht von React verwalteter Header wird vor den ersten
+ *     Kopftext-Link injiziert (Observer re-injiziert nach Re-Renders)
+ *   - Ein-/Ausklappen via row.style.display, per Tick re-appliziert
+ *     (setzt nur bei echter Änderung → kein Observer-Endlosloop)
+ *   - Zustand in localStorage, Default = eingeklappt (Sidebar entlasten)
+ */
+(function () {
+  var STATE_KEY = "statthus.kopftexte.collapsed";
+  var HEADER_ID = "statthus-kopftexte-header";
+  var CARET_CLASS = "statthus-kopftexte-caret";
+  var ROW_RE = /^#\/collections\/([a-z0-9]+_intro)(\?.*)?$/;
+
+  function isCollapsed() {
+    try {
+      return localStorage.getItem(STATE_KEY) !== "0"; // Default: collapsed
+    } catch (e) {
+      return true;
+    }
+  }
+  function setCollapsed(v) {
+    try {
+      localStorage.setItem(STATE_KEY, v ? "1" : "0");
+    } catch (e) {
+      /* localStorage gesperrt — Zustand dann nur für diese Session */
+    }
+  }
+
+  // Alle Kopftext-Collection-Zeilen in Sidebar-Reihenfolge. Wir hängen
+  // an die <li>-Zeile (falls vorhanden), sonst an den <a> selbst.
+  function introRows() {
+    var rows = [];
+    var links = document.querySelectorAll('a[href^="#/collections/"]');
+    for (var i = 0; i < links.length; i++) {
+      if (!ROW_RE.test(links[i].getAttribute("href") || "")) continue;
+      rows.push(links[i].closest("li") || links[i]);
+    }
+    return rows;
+  }
+
+  function makeHeader(sameTag) {
+    var el = document.createElement(sameTag === "LI" ? "li" : "div");
+    el.id = HEADER_ID;
+    el.style.cssText = [
+      "display:flex",
+      "align-items:center",
+      "gap:.4rem",
+      "padding:.5rem .75rem",
+      "cursor:pointer",
+      "font-weight:600",
+      "font-size:.75rem",
+      "text-transform:uppercase",
+      "letter-spacing:.03em",
+      "color:#6b7280",
+      "user-select:none",
+    ].join(";");
+    var caret = document.createElement("span");
+    caret.className = CARET_CLASS;
+    caret.textContent = "▸";
+    caret.style.cssText =
+      "display:inline-block;transition:transform .12s;font-size:.7rem";
+    var label = document.createElement("span");
+    label.textContent = "Kopftexte";
+    el.appendChild(caret);
+    el.appendChild(label);
+    el.addEventListener("click", function () {
+      setCollapsed(!isCollapsed());
+      apply();
+    });
+    return el;
+  }
+
+  function apply() {
+    var rows = introRows();
+    var header = document.getElementById(HEADER_ID);
+    if (!rows.length) {
+      // Nicht auf einer Seite mit Sidebar-Liste — Header entfernen.
+      if (header) header.remove();
+      return;
+    }
+    var first = rows[0];
+    if (!header) header = makeHeader(first.tagName);
+    // Header direkt vor den ersten Kopftext-Eintrag (re)positionieren —
+    // nur wenn nötig, sonst löst das eine Observer-Runde aus.
+    if (
+      header.parentNode !== first.parentNode ||
+      header.nextSibling !== first
+    ) {
+      first.parentNode.insertBefore(header, first);
+    }
+    var collapsed = isCollapsed();
+    var caret = header.querySelector("." + CARET_CLASS);
+    if (caret) {
+      caret.style.transform = collapsed ? "" : "rotate(90deg)";
+    }
+    for (var i = 0; i < rows.length; i++) {
+      var want = collapsed ? "none" : "";
+      if (rows[i].style.display !== want) rows[i].style.display = want;
+    }
+  }
+
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    (window.requestAnimationFrame || setTimeout)(function () {
+      pending = false;
+      apply();
+    }, 16);
+  }
+
+  window.addEventListener("hashchange", schedule);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      apply();
+      new MutationObserver(schedule).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    });
+  } else {
+    apply();
+    new MutationObserver(schedule).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+})();
