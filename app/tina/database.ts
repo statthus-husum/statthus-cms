@@ -12,7 +12,7 @@ const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN as string;
 const owner = process.env.GITHUB_OWNER as string;
 const repo = process.env.GITHUB_REPO as string;
-const branch = (process.env.GITHUB_BRANCH || "main") as string;
+const branch = (process.env.GITHUB_BRANCH || "staging") as string;
 
 if (!isLocal && (!token || !owner || !repo) && process.env.NODE_ENV === "production" && !process.env.TINA_BUILD) {
   // Im laufenden Container (NODE_ENV=production, TINA_BUILD nicht gesetzt) loggen,
