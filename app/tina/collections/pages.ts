@@ -154,10 +154,14 @@ function makeSubSectionCollection(name: string, label: string): Collection {
     format: "md",
     match: { include: "*/*" },
     ui: {
-      // Slug bleibt flach; in welchen Sub-Ordner die Datei kommt,
-      // bestimmt der Datei-Browser bzw. der bestehende Sub-Folder.
+      // Match `*/*` verlangt genau eine Ordner-Ebene. Eine neue Unterseite
+      // legt deshalb einen eigenen Sub-Ordner <titel-slug>/ mit der
+      // Landing `_index.md` an → relativePath "<titel-slug>/_index" erfüllt
+      // `*/*`. Ein flacher Slug (eine Ebene) wurde von Tina mit
+      // "filename … is not allowed for this collection" abgelehnt.
       filename: {
-        slugify: (values) => slugify(values?.title, `neuer-${name}-eintrag`),
+        slugify: (values) =>
+          `${slugify(values?.title, `neuer-${name}-eintrag`)}/_index`,
       },
     },
     fields: sectionFields,
