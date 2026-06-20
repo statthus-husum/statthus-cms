@@ -9,6 +9,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
 import { readFile } from "fs/promises";
+import sharp from "sharp";
 
 export const config = {
   api: { bodyParser: false },
@@ -19,6 +20,33 @@ const REPO = process.env.GITHUB_REPO || "statthus-website";
 const BRANCH = process.env.GITHUB_BRANCH || "staging";
 const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
 const MEDIA_DIR = "assets/images/uploads";
+
+// Editor:innen laden oft Kamera-Originale hoch (mehrere MB, >4000px). Die
+// GitHub-Contents-API verträgt große base64-Payloads schlecht (Timeouts /
+// "gitrpc bad object"-Fehler bei der Freigabe), und Hugo müsste sie sonst bei
+// jedem Build neu verkleinern. Deshalb skalieren wir serverseitig auf eine
+// web-taugliche Größe herunter, bevor wir committen.
+const MAX_DIM = 2500; // längste Kante in px
+const RASTER = new Set(["jpg", "jpeg", "png", "webp"]);
+
+async function optimizeImage(buf: Buffer, filename: string): Promise<Buffer> {
+  const ext = (filename.split(".").pop() || "").toLowerCase();
+  if (!RASTER.has(ext)) return buf; // svg/gif u.a. unangetastet lassen
+  try {
+    let img = sharp(buf, { failOn: "none" }).rotate(); // EXIF-Orientierung anwenden
+    const meta = await img.metadata();
+    if ((meta.width || 0) > MAX_DIM || (meta.height || 0) > MAX_DIM) {
+      img = img.resize({ width: MAX_DIM, height: MAX_DIM, fit: "inside", withoutEnlargement: true });
+    }
+    if (ext === "png") img = img.png({ compressionLevel: 9 });
+    else if (ext === "webp") img = img.webp({ quality: 82 });
+    else img = img.jpeg({ quality: 82, mozjpeg: true });
+    const out = await img.toBuffer();
+    return out.length < buf.length ? out : buf; // nie größer machen
+  } catch {
+    return buf; // im Zweifel das Original committen statt zu scheitern
+  }
+}
 
 function isAuthed(req: NextApiRequest) {
   // NextAuth setzt einen der beiden Cookie-Namen je nach Protokoll
@@ -77,8 +105,9 @@ export default async function handler(
     let filename = safeName(original);
     if (!filename) filename = `upload-${Date.now()}`;
 
-    // Datei einlesen, base64-encoden
-    const buf = await readFile(uploaded.filepath);
+    // Datei einlesen, ggf. herunterskalieren, base64-encoden
+    const rawBuf = await readFile(uploaded.filepath);
+    const buf = await optimizeImage(rawBuf, filename);
     const base64 = buf.toString("base64");
 
     const path = `${targetDir}/${filename}`;

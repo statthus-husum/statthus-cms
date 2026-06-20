@@ -23,8 +23,8 @@
   "dependencies": {
     "@svgr/webpack": "^8.1.0",
     "@tinacms/cli": "^1.12.6",
-    "formidable": "^3.5.2",
     "@tinacms/datalayer": "^1.4.3",
+    "formidable": "^3.5.2",
     "mongodb-level": "0.0.4",
     "next": "14.2.35",
     "next-auth": "^4.24.13",
@@ -32,6 +32,7 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.33.5",
     "tinacms": "^2.10.1",
     "tinacms-authjs": "^5.0.9",
     "tinacms-gitprovider-github": "^2.0.19",
