@@ -47,7 +47,9 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const onlyIdx = args.indexOf("--only");
 const only = onlyIdx >= 0 ? args[onlyIdx + 1] : null;
-const repoPath = args.filter((a, i) => !a.startsWith("--") && i !== onlyIdx + 1).pop();
+const repoPath = args
+  .filter((a, i) => !a.startsWith("--") && (onlyIdx < 0 || i !== onlyIdx + 1))
+  .pop();
 
 if (!repoPath) {
   console.error("Usage: node bin/migrate-media-to-s3.mjs [--dry-run] [--only <Ordner>] /pfad/zum/statthus-website");
