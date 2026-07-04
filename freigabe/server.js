@@ -25,7 +25,8 @@ if (!ADMIN_PASS || !GH_TOKEN) {
 // app/docker-entrypoint.sh:TINA_PATHS) + die CMS-hochgeladenen Bilder.
 // Theme-Code, Layouts, Hugo-Config, package.json sowie content/-Unterordner,
 // die NICHT in Tina editiert werden (z.B. content/german/newsletter,
-// content/german/about) bleiben damit gegenüber der Freigabe unsichtbar —
+// content/german/about, und seit dem CMS-Rückbau auch content/german/
+// {projekt,member,help}) bleiben damit gegenüber der Freigabe unsichtbar —
 // wenn jemand direkt auf main an Theme/Code/Hugo-Pages arbeitet, überschreibt
 // eine Freigabe das nicht.
 const EDITOR_PREFIXES = [
@@ -34,9 +35,6 @@ const EDITOR_PREFIXES = [
   "content/german/news/",
   "content/german/people/",
   "content/german/themen/",
-  "content/german/projekt/",
-  "content/german/member/",
-  "content/german/help/",
   "assets/images/uploads/",
 ];
 

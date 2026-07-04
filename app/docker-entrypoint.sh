@@ -16,7 +16,9 @@ ADMIN_BACKUP=/tmp/admin-backup
 # WICHTIG: Wir kopieren NUR die für Tina-Collections relevanten Pfade. Sonst
 # zieht Tina das ganze Hugo-Theme-Demo-Content-Verzeichnis ein und der Build
 # OOM-killed bei kleineren VMs.
-TINA_PATHS="content/users content/german/event content/german/news content/german/people content/german/themen content/german/projekt content/german/member content/german/help"
+# projekt/member/help fehlen bewusst: diese Sections werden nicht mehr im
+# CMS gepflegt, sondern direkt in Hugo (siehe tina/config.tsx).
+TINA_PATHS="content/users content/german/event content/german/news content/german/people content/german/themen"
 
 if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ] && [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
   echo "[entrypoint] Refreshing content from $GITHUB_OWNER/$GITHUB_REPO@${GITHUB_BRANCH:-main}"
