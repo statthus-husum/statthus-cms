@@ -4,7 +4,9 @@
 // sondern in einem Hetzner-Object-Storage-Bucket (statthus-infra:
 // objectstorage.tf, minio_s3_bucket.cms_media). Ausgeliefert werden sie
 // first-party über Caddy auf der CMS-VM als https://MEDIA_DOMAIN/<key> —
-// bewusst kein externes CDN, damit keine Besucher-IPs an Drittanbieter
+// MEDIA_DOMAIN ist die bestehende CMS-Domain (schreibe.statthus-husum.de,
+// Route /uploads/* im Caddyfile), damit kein eigener DNS-Record nötig ist.
+// Bewusst kein externes CDN, damit keine Besucher-IPs an Drittanbieter
 // gehen. Hintergrund des Umzugs: Bild-Commits haben das Website-Repo
 // aufgebläht und jeden GitHub-Pages-Deploy massiv verlangsamt (Hugo hat
 // alle Varianten bei jedem Build neu gerechnet).
@@ -40,7 +42,7 @@ const ENDPOINT = process.env.S3_ENDPOINT || "fsn1.your-objectstorage.com";
 const REGION = process.env.S3_REGION || "fsn1";
 export const BUCKET = process.env.MEDIA_S3_BUCKET || "statthus-media";
 export const MEDIA_DOMAIN =
-  process.env.MEDIA_DOMAIN || "bilder.statthus-husum.de";
+  process.env.MEDIA_DOMAIN || "schreibe.statthus-husum.de";
 
 // Wurzel des Media-Managers im Bucket. Bewusst "uploads" (statt des alten
 // Repo-Pfads assets/images/uploads), die öffentliche URL bleibt kurz.

@@ -1,5 +1,5 @@
 // Custom Media Store — Bilder liegen im Hetzner-S3-Media-Bucket und werden
-// first-party über https://bilder.statthus-husum.de/uploads/... ausgeliefert
+// first-party über https://schreibe.statthus-husum.de/uploads/... ausgeliefert
 // (Caddy-Proxy auf der CMS-VM, siehe lib/media-s3.ts für das Key-Layout).
 //
 // Frontmatter-Konvention: absolute URL — das Hugo-Theme-Partial image.html

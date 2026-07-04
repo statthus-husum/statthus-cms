@@ -38,6 +38,40 @@
     }
     header @admin_assets Cache-Control "public, max-age=31536000, immutable"
 
+    # Media-Auslieferung auf /uploads/*: proxied den öffentlichen Hetzner-
+    # S3-Media-Bucket first-party über DIESE Domain (kein eigener DNS-Record
+    # nötig). Bewusst KEIN externes CDN — Besucher-IPs bleiben bei uns
+    # (gleiche Logik wie der Honeypot-statt-reCAPTCHA-Entscheid). Der Bucket
+    # erlaubt anonym nur GetObject (Policy in statthus-infra), Listing ist
+    # zu — die Galerie liest ihre Bildliste aus uploads/<Ordner>/manifest.json.
+    # Bucket-Keys beginnen mit "uploads/", daher genügt der Pfad-Style-
+    # Rewrite /uploads/x.jpg → /<bucket>/uploads/x.jpg am S3-Endpunkt.
+    # Nur GET/HEAD — alles Schreibende geht ausschließlich authentifiziert
+    # über die Tina-API (/api/media/*).
+    @media {
+        path /uploads/*
+        method GET HEAD
+    }
+    handle @media {
+        # Manifeste ändern sich bei jedem Upload → nicht cachen (ETag-
+        # Revalidierung reicht). Bilder: Dateinamen sind stabil, Inhalte
+        # können aber ersetzt werden → 1 Tag Browser-Cache als Mittelweg.
+        # Hetzner OS liefert selbst kein Cache-Control → kein Upstream-Konflikt.
+        @manifest path */manifest.json
+        header @manifest Cache-Control "no-cache"
+        @images not path */manifest.json
+        header @images Cache-Control "public, max-age=86400"
+        # Die Website (statthus-husum.de) lädt manifest.json per fetch()
+        # cross-origin; Bilder in <img> bräuchten kein CORS. Öffentliche,
+        # unkritische Inhalte → pauschal erlauben.
+        header Access-Control-Allow-Origin "*"
+
+        rewrite * /{$MEDIA_S3_BUCKET}{uri}
+        reverse_proxy https://{$S3_ENDPOINT} {
+            header_up Host {$S3_ENDPOINT}
+        }
+    }
+
     # Freigabe-App (Approval-Dashboard) auf /freigabe/* — Pfad wird gestripped,
     # die App sieht nur "/" und "/merge".
     handle_path /freigabe* {
@@ -64,51 +98,3 @@
     }
 }
 
-# Media-Auslieferung: proxied den öffentlichen Hetzner-S3-Media-Bucket als
-# first-party Domain (bilder.statthus-husum.de). Bewusst KEIN externes CDN —
-# Besucher-IPs bleiben bei uns (gleiche Logik wie der Honeypot-statt-
-# reCAPTCHA-Entscheid). Der Bucket erlaubt anonym nur GetObject (Policy in
-# statthus-infra), Listing ist zu — die Galerie liest ihre Bildliste aus
-# uploads/<Ordner>/manifest.json.
-{$MEDIA_DOMAIN} {
-    encode gzip zstd
-
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Content-Type-Options "nosniff"
-        # Die Website (statthus-husum.de) lädt manifest.json per fetch()
-        # cross-origin; Bilder in <img> bräuchten kein CORS. Öffentliche,
-        # unkritische Inhalte → pauschal erlauben.
-        Access-Control-Allow-Origin "*"
-    }
-
-    # Manifeste ändern sich bei jedem Upload → nicht cachen (ETag-
-    # Revalidierung reicht). Bilder: Dateinamen sind stabil, Inhalte
-    # können aber ersetzt werden → 1 Tag Browser-Cache als Mittelweg.
-    # Hetzner OS liefert selbst kein Cache-Control, daher kein Konflikt
-    # mit Upstream-Headern.
-    @manifest path */manifest.json
-    header @manifest Cache-Control "no-cache"
-    @images not path */manifest.json
-    header @images Cache-Control "public, max-age=86400"
-
-    # Nur GET/HEAD nach draußen — alles Schreibende geht ausschließlich
-    # authentifiziert über die Tina-API (schreibe.statthus-husum.de).
-    # Pfad-Style-Rewrite: bilder.../uploads/x.jpg → S3 /<bucket>/uploads/x.jpg
-    @readonly method GET HEAD
-    handle @readonly {
-        rewrite * /{$MEDIA_S3_BUCKET}{uri}
-        reverse_proxy https://{$S3_ENDPOINT} {
-            header_up Host {$S3_ENDPOINT}
-        }
-    }
-    handle {
-        respond "Method Not Allowed" 405
-    }
-
-    log {
-        output stdout
-        format console
-        level INFO
-    }
-}

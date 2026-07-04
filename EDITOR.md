@@ -80,7 +80,7 @@ Im Bearbeitungs-Formular bei einem Bild-Feld:
 2. **Upload** — eine oder mehrere Bilddateien vom Rechner wählen
 3. Hochgeladenes Bild auswählen → **Insert**
 
-Das Bild liegt danach im Bild-Speicher (`bilder.statthus-husum.de`) und ist sofort verfügbar. Galerie-Bilder (Ordner **Galerie** im Media Manager) erscheinen direkt auf der Galerie-Seite der Website — ganz ohne Freigabe.
+Das Bild liegt danach im Bild-Speicher (`schreibe.statthus-husum.de`) und ist sofort verfügbar. Galerie-Bilder (Ordner **Galerie** im Media Manager) erscheinen direkt auf der Galerie-Seite der Website — ganz ohne Freigabe.
 
 **Bilder-Tipps:**
 - Quer-Format funktioniert für News am besten (16:9 oder 4:3)
