@@ -1,16 +1,17 @@
-// Listet Bilder + Unterordner unter assets/images/uploads/ vom konfigurierten
-// Branch. Tina ruft diesen Endpunkt auch beim Klick auf einen Ordner auf —
-// dann kommt der Pfad als ?directory=assets/images/uploads/<sub> rein.
-// CMS-Uploads sind bewusst in einem eigenen Unterordner getrennt von den
-// Theme-Assets unter assets/images/.
+// Listet Bilder + Unterordner aus dem S3-Media-Bucket (Wurzel: uploads/).
+// Tina ruft diesen Endpunkt auch beim Klick auf einen Ordner auf — dann
+// kommt der Pfad als ?directory=uploads/<sub> rein. Interne Objekte
+// (.keep-Marker, _thumbs/-Ordner, manifest.json) werden ausgeblendet.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
-const REPO = process.env.GITHUB_REPO || "statthus-website";
-const BRANCH = process.env.GITHUB_BRANCH || "staging";
-const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images/uploads";
+import {
+  MEDIA_ROOT,
+  hasS3Credentials,
+  listDir,
+  publicUrl,
+  thumbKey,
+} from "../../../lib/media-s3";
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};
@@ -21,78 +22,75 @@ function isAuthed(req: NextApiRequest) {
 }
 
 // Normalisiert das angefragte Verzeichnis auf einen Pfad innerhalb von
-// MEDIA_DIR. Tina ruft List initial mit ihrem konfigurierten publicFolder
-// (z.B. "public") auf, das wir auf MEDIA_DIR mappen müssen — sonst
+// MEDIA_ROOT. Tina ruft List initial mit ihrem konfigurierten publicFolder
+// (z.B. "public") auf, das wir auf MEDIA_ROOT mappen müssen — sonst
 // scheitert der erste Fetch beim Öffnen des Media-Managers.
 function safeMediaDir(raw: string): string {
   const trimmed = (raw || "").trim().replace(/^\/+|\/+$/g, "");
-  if (!trimmed || trimmed.includes("..")) return MEDIA_DIR;
-  if (trimmed === MEDIA_DIR) return trimmed;
-  if (trimmed.startsWith(MEDIA_DIR + "/")) return trimmed;
-  return MEDIA_DIR;
+  if (!trimmed || trimmed.includes("..")) return MEDIA_ROOT;
+  if (trimmed === MEDIA_ROOT) return trimmed;
+  if (trimmed.startsWith(MEDIA_ROOT + "/")) return trimmed;
+  return MEDIA_ROOT;
 }
 
-function relFromAssets(path: string): string {
-  return path.startsWith("assets/") ? path.slice("assets/".length) : path;
-}
+const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif", "svg"]);
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
   if (!isAuthed(req)) return res.status(401).json({ error: "Not authenticated" });
-  if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
+  if (!hasS3Credentials()) return res.status(500).json({ error: "S3 credentials not set" });
 
   const directory = safeMediaDir(String(req.query.directory || ""));
 
   try {
-    const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(directory)}?ref=${BRANCH}`,
-      { headers: { Authorization: `Bearer ${TOKEN}` } },
-    );
+    const { files, dirs } = await listDir(directory);
 
-    if (ghRes.status === 404) {
-      return res.json({ items: [], totalCount: 0, offset: 0, limit: 0 });
-    }
-    if (!ghRes.ok) {
-      const errBody = await ghRes.json().catch(() => ({}));
-      return res.status(502).json({ error: errBody.message || "GitHub list failed" });
-    }
+    const dirItems = dirs
+      .filter((d) => !d.endsWith("/_thumbs"))
+      .map((d) => ({
+        type: "dir" as const,
+        id: d,
+        filename: d.slice(d.lastIndexOf("/") + 1),
+        directory,
+      }));
 
-    const contents = await ghRes.json();
-    const entries = Array.isArray(contents) ? contents : [];
-
-    // Ordner zuerst, dann Dateien — innerhalb der Gruppen alphabetisch.
-    entries.sort((a: any, b: any) => {
-      if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-      return a.name.localeCompare(b.name, "de");
-    });
-
-    const items = entries
-      .filter((e: any) => e.type === "file" || e.type === "dir")
-      .map((e: any) => {
-        if (e.type === "dir") {
-          return {
-            type: "dir",
-            id: e.path,
-            filename: e.name,
-            directory,
-          };
-        }
-        const src = relFromAssets(e.path);
+    const fileItems = files
+      .filter((f) => {
+        const name = f.key.slice(f.key.lastIndexOf("/") + 1);
+        if (name === ".keep" || name === "manifest.json") return false;
+        const ext = (name.split(".").pop() || "").toLowerCase();
+        return IMAGE_EXTS.has(ext);
+      })
+      .map((f) => {
+        const name = f.key.slice(f.key.lastIndexOf("/") + 1);
+        const src = publicUrl(f.key);
+        // Media-Manager-Kacheln laden das kleine _thumbs-Derivat; falls es
+        // (Alt-Bestand, svg/gif) fehlt, fällt der Browser via onerror nicht
+        // zurück — Tina zeigt dann das Original. Deshalb Thumb nur für
+        // Raster-Formate annehmen, sonst Original.
+        const ext = (name.split(".").pop() || "").toLowerCase();
+        const hasThumb = ["jpg", "jpeg", "png", "webp"].includes(ext);
+        const preview = hasThumb ? publicUrl(thumbKey(f.key)) : src;
         return {
-          type: "file",
-          id: e.path,
-          filename: e.name,
+          type: "file" as const,
+          id: f.key,
+          filename: name,
           directory,
           src,
           thumbnails: {
-            "75x75": src,
-            "400x400": src,
+            "75x75": preview,
+            "400x400": preview,
             "1000x1000": src,
           },
         };
       });
+
+    // Ordner zuerst, dann Dateien — innerhalb der Gruppen alphabetisch.
+    dirItems.sort((a, b) => a.filename.localeCompare(b.filename, "de"));
+    fileItems.sort((a, b) => a.filename.localeCompare(b.filename, "de"));
+    const items = [...dirItems, ...fileItems];
 
     return res.json({
       items,

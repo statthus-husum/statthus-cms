@@ -1,14 +1,14 @@
-// Custom Media Store — committet Bilder direkt ins Hugo-Repo unter
-// assets/images/. Das Hugo-Theme bindet Bilder über die assets/-Pipeline
-// ein (resources.Get), daher müssen Uploads dorthin.
+// Custom Media Store — Bilder liegen im Hetzner-S3-Media-Bucket und werden
+// first-party über https://bilder.statthus-husum.de/uploads/... ausgeliefert
+// (Caddy-Proxy auf der CMS-VM, siehe lib/media-s3.ts für das Key-Layout).
 //
-// Frontmatter-Konvention: relativer Pfad ohne führenden Slash, z.B.
-// "images/foo.jpg" — so wie es das Theme aus assets/ aufzulösen erwartet.
-// Damit Tina im Admin trotzdem eine Vorschau rendern kann (Tina baut
-// Image-URLs als origin+value zusammen), liefern wir für die Preview
-// eine vollständige raw.githubusercontent-URL via previewSrc().
+// Frontmatter-Konvention: absolute URL — das Hugo-Theme-Partial image.html
+// reicht http(s)-Quellen unverändert als <img src> durch. Alt-Bestand mit
+// relativen "images/..."-Pfaden (aus der Git-Ära des Media-Stores) bleibt
+// im Website-Repo liegen; previewSrc() mappt ihn weiterhin auf
+// raw.githubusercontent, damit die Admin-Vorschau funktioniert.
 //
-// Auf der Backend-Seite läuft das über /api/media/* in pages/api/media/.
+// Auf der Backend-Seite läuft alles über /api/media/* in pages/api/media/.
 
 import type {
   Media,
@@ -21,31 +21,28 @@ const RAW_BASE =
   process.env.NEXT_PUBLIC_GITHUB_RAW_BASE ||
   "https://raw.githubusercontent.com/statthus-husum/statthus-website/staging";
 
-function toRawUrl(value: string | undefined | null): string {
+// Legacy-Werte (relative Pfade ohne führenden Slash) auf raw.githubusercontent
+// mappen; absolute URLs (neuer S3-Bestand) unverändert lassen.
+function toPreviewUrl(value: string | undefined | null): string {
   if (!value) return "";
   if (/^https?:\/\//.test(value)) return value;
   const relative = value.replace(/^\/+/, "");
   return `${RAW_BASE}/assets/${relative}`;
 }
 
-export default class GitHubMediaStore {
+export default class S3MediaStore {
   accept = "image/*";
 
-  // Was wird ins Frontmatter geschrieben? Wir leiten den Wert aus media.id
-  // ab (z.B. "assets/images/franz.png" → "images/franz.png"), damit das
-  // Hugo-Theme den Pfad über resources.Get auflösen kann.
+  // Was wird ins Frontmatter geschrieben? Die absolute Auslieferungs-URL —
+  // persist()/list() setzen media.src bereits darauf.
   parse(media: Media): string {
-    const id = media?.id || "";
-    if (id.startsWith("assets/")) return id.slice("assets/".length);
     return media?.src || "";
   }
 
   // Tina ruft previewSrc(value) für vorhandene Bilder im Feld auf.
-  // value ist der Frontmatter-String (ohne Slash, ohne assets/-Prefix) —
-  // wir mappen ihn auf raw.githubusercontent, sodass das Admin-UI die
-  // Bilder direkt anzeigen kann.
+  // value ist der Frontmatter-String.
   previewSrc(value: string): string {
-    return toRawUrl(value);
+    return toPreviewUrl(value);
   }
 
   async persist(files: MediaUploadOptions[]): Promise<Media[]> {
@@ -53,8 +50,8 @@ export default class GitHubMediaStore {
     for (const f of files) {
       const fd = new FormData();
       fd.append("file", f.file);
-      // Tina übergibt das Verzeichnis relativ zu publicFolder — wir
-      // ignorieren das und setzen assets/images selbst.
+      // Tina übergibt das Verzeichnis relativ zu publicFolder — der
+      // Server normalisiert es auf die Bucket-Wurzel "uploads".
       fd.append("directory", f.directory || "");
 
       const res = await fetch("/api/media/upload", {
@@ -66,17 +63,16 @@ export default class GitHubMediaStore {
         throw new Error(`Upload fehlgeschlagen: ${res.status} ${txt}`);
       }
       const result = await res.json();
-      const previewUrl = toRawUrl(result.src);
       out.push({
         type: "file",
         id: result.id,
         filename: result.filename,
         directory: result.directory,
-        src: previewUrl,
+        src: result.src,
         thumbnails: {
-          "75x75": previewUrl,
-          "400x400": previewUrl,
-          "1000x1000": previewUrl,
+          "75x75": result.thumb || result.src,
+          "400x400": result.thumb || result.src,
+          "1000x1000": result.src,
         },
       });
     }
@@ -93,20 +89,9 @@ export default class GitHubMediaStore {
       throw new Error(`List fehlgeschlagen: ${res.status}`);
     }
     const data = await res.json();
-    const items = (data.items || []).map((it: Media) => {
-      const previewUrl = toRawUrl(it.src);
-      return {
-        ...it,
-        src: previewUrl,
-        thumbnails: {
-          "75x75": previewUrl,
-          "400x400": previewUrl,
-          "1000x1000": previewUrl,
-        },
-      };
-    });
+    // Server liefert bereits absolute src/thumbnails-URLs.
     return {
-      items,
+      items: data.items || [],
       nextOffset: data.nextOffset,
     };
   }

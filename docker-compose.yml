@@ -28,6 +28,10 @@ services:
       - ${CMS_DATA_DIR:-./data}/caddy/config:/config
     environment:
       - CMS_DOMAIN=${CMS_DOMAIN:-schreibe.statthus-husum.de}
+      # Media-Auslieferung (Proxy auf den S3-Media-Bucket, siehe Caddyfile)
+      - MEDIA_DOMAIN=${MEDIA_DOMAIN:-bilder.statthus-husum.de}
+      - MEDIA_S3_BUCKET=${MEDIA_S3_BUCKET:-statthus-media}
+      - S3_ENDPOINT=${S3_ENDPOINT:-fsn1.your-objectstorage.com}
     networks:
       - statthus
 
@@ -55,6 +59,15 @@ services:
       - MONGODB_URI=mongodb://${MONGO_USER:-tina}:${MONGO_PASS}@mongo:27017/${MONGODB_DBNAME:-tinacms}?authSource=admin
       - MONGODB_DBNAME=${MONGODB_DBNAME:-tinacms}
       - MONGODB_COLLECTION=${MONGODB_COLLECTION:-tinacms}
+      # Media-Store: Bild-Uploads gehen in den Hetzner-S3-Media-Bucket
+      # (statthus-infra: minio_s3_bucket.cms_media). Credentials sind
+      # dieselben Object-Storage-Keys wie beim Backup-Job.
+      - MEDIA_S3_BUCKET=${MEDIA_S3_BUCKET:-statthus-media}
+      - MEDIA_DOMAIN=${MEDIA_DOMAIN:-bilder.statthus-husum.de}
+      - S3_ENDPOINT=${S3_ENDPOINT:-fsn1.your-objectstorage.com}
+      - S3_REGION=${S3_REGION:-fsn1}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
     networks:
       - statthus
 

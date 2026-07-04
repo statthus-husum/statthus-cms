@@ -22,20 +22,20 @@ if (!ADMIN_PASS || !GH_TOKEN) {
 
 // Pfade, die durch die Freigabe von staging nach main wandern dürfen.
 // Genau die Verzeichnisse, die Tina als Collections kennt (Spiegelbild von
-// app/docker-entrypoint.sh:TINA_PATHS) + die CMS-hochgeladenen Bilder.
-// Theme-Code, Layouts, Hugo-Config, package.json sowie content/-Unterordner,
-// die NICHT in Tina editiert werden (z.B. content/german/newsletter,
-// content/german/about, und seit dem CMS-Rückbau auch content/german/
-// {projekt,member,help}) bleiben damit gegenüber der Freigabe unsichtbar —
-// wenn jemand direkt auf main an Theme/Code/Hugo-Pages arbeitet, überschreibt
-// eine Freigabe das nicht.
+// app/docker-entrypoint.sh:TINA_PATHS). Theme-Code, Layouts, Hugo-Config,
+// package.json sowie content/-Unterordner, die NICHT in Tina editiert
+// werden (z.B. content/german/newsletter, content/german/about, und seit
+// dem CMS-Rückbau auch content/german/{projekt,member,help}) bleiben damit
+// gegenüber der Freigabe unsichtbar — wenn jemand direkt auf main an
+// Theme/Code/Hugo-Pages arbeitet, überschreibt eine Freigabe das nicht.
+// Bilder (früher assets/images/uploads/) laufen seit dem Umzug in den
+// S3-Media-Bucket gar nicht mehr durch Git — Uploads sind sofort live.
 const EDITOR_PREFIXES = [
   "content/users/",
   "content/german/event/",
   "content/german/news/",
   "content/german/people/",
   "content/german/themen/",
-  "assets/images/uploads/",
 ];
 
 function isEditorPath(path) {

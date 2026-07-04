@@ -1,15 +1,17 @@
-// Legt einen Unterordner unter assets/images/uploads/ an, indem ein
-// .gitkeep-Marker committet wird. GitHub kann keine leeren Ordner
-// speichern — über Marker-Dateien tun wir trotzdem so. Tina ruft das
-// indirekt über den admin-tweaks "+ Ordner"-Button auf.
+// Legt einen Unterordner im S3-Media-Bucket an, indem ein .keep-Marker
+// geschrieben wird. S3 kennt keine echten Verzeichnisse — über Marker-
+// Objekte tun wir trotzdem so (gleiches Muster wie vorher mit .gitkeep
+// im Git-Repo). Tina ruft das indirekt über den admin-tweaks
+// "+ Ordner"-Button auf.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
-const REPO = process.env.GITHUB_REPO || "statthus-website";
-const BRANCH = process.env.GITHUB_BRANCH || "staging";
-const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images/uploads";
+import {
+  MEDIA_ROOT,
+  hasS3Credentials,
+  listDir,
+  putObject,
+} from "../../../lib/media-s3";
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};
@@ -33,14 +35,14 @@ function safeSegment(name: string): string {
 }
 
 // Validiert den Eingabepfad und normalisiert ihn auf einen vollen
-// Repo-Pfad innerhalb von MEDIA_DIR.
+// Bucket-Key innerhalb von MEDIA_ROOT.
 function resolveTarget(rawPath: string, rawParent: string): string | null {
   const parent = (rawParent || "").trim().replace(/^\/+|\/+$/g, "");
-  // parent muss leer oder MEDIA_DIR / ein Unterordner davon sein
-  let base = MEDIA_DIR;
+  // parent muss leer oder MEDIA_ROOT / ein Unterordner davon sein
+  let base = MEDIA_ROOT;
   if (parent) {
     if (parent.includes("..")) return null;
-    if (parent !== MEDIA_DIR && !parent.startsWith(MEDIA_DIR + "/")) return null;
+    if (parent !== MEDIA_ROOT && !parent.startsWith(MEDIA_ROOT + "/")) return null;
     base = parent;
   }
 
@@ -59,7 +61,7 @@ export default async function handler(
 ) {
   if (req.method !== "POST") return res.status(405).end();
   if (!isAuthed(req)) return res.status(401).json({ error: "Not authenticated" });
-  if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
+  if (!hasS3Credentials()) return res.status(500).json({ error: "S3 credentials not set" });
 
   try {
     const body = (req.body || {}) as { name?: string; parent?: string };
@@ -68,40 +70,13 @@ export default async function handler(
       return res.status(400).json({ error: "invalid folder name" });
     }
 
-    const keepPath = `${target}/.gitkeep`;
-
-    // Falls die Datei (oder der Ordner) schon existiert: idempotent OK.
-    const existsRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(keepPath)}?ref=${BRANCH}`,
-      { headers: { Authorization: `Bearer ${TOKEN}` } },
-    );
-    if (existsRes.ok) {
+    // Falls der Ordner schon Objekte enthält: idempotent OK.
+    const { files, dirs } = await listDir(target);
+    if (files.length > 0 || dirs.length > 0) {
       return res.json({ ok: true, directory: target, alreadyExists: true });
     }
 
-    const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(keepPath)}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          Accept: "application/vnd.github+json",
-        },
-        body: JSON.stringify({
-          message: `Media: Ordner ${target} angelegt`,
-          content: "",
-          branch: BRANCH,
-        }),
-      },
-    );
-
-    if (!ghRes.ok) {
-      const errBody = await ghRes.json().catch(() => ({}));
-      return res
-        .status(502)
-        .json({ error: errBody.message || "GitHub mkdir failed" });
-    }
-
+    await putObject(`${target}/.keep`, "", "application/octet-stream");
     return res.json({ ok: true, directory: target });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });

@@ -1,12 +1,15 @@
-// Löscht ein Bild aus assets/images/uploads/ vom konfigurierten Branch.
+// Löscht ein Bild aus dem S3-Media-Bucket — inklusive Thumbnail und
+// Manifest-Eintrag des Ordners.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
-const REPO = process.env.GITHUB_REPO || "statthus-website";
-const BRANCH = process.env.GITHUB_BRANCH || "staging";
-const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images/uploads";
+import {
+  MEDIA_ROOT,
+  hasS3Credentials,
+  deleteObject,
+  removeManifestEntry,
+  thumbKey,
+} from "../../../lib/media-s3";
 
 function isAuthed(req: NextApiRequest) {
   const cookies = req.cookies || {};
@@ -22,42 +25,23 @@ export default async function handler(
 ) {
   if (req.method !== "DELETE") return res.status(405).end();
   if (!isAuthed(req)) return res.status(401).json({ error: "Not authenticated" });
-  if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
+  if (!hasS3Credentials()) return res.status(500).json({ error: "S3 credentials not set" });
 
-  const path = String(req.query.path || "");
-  if (!path.startsWith(MEDIA_DIR + "/") || path.includes("..")) {
+  const key = String(req.query.path || "");
+  if (!key.startsWith(MEDIA_ROOT + "/") || key.includes("..")) {
     return res.status(400).json({ error: "invalid path" });
   }
 
   try {
-    const existsRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(path)}?ref=${BRANCH}`,
-      { headers: { Authorization: `Bearer ${TOKEN}` } },
-    );
-    if (!existsRes.ok) return res.status(404).json({ error: "not found" });
-    const existing = await existsRes.json();
+    await deleteObject(key);
+    // Thumb kann fehlen (svg/gif) — DeleteObject ist idempotent, S3
+    // antwortet auch für nicht existierende Keys mit 204.
+    await deleteObject(thumbKey(key));
 
-    const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(path)}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          Accept: "application/vnd.github+json",
-        },
-        body: JSON.stringify({
-          message: `Media-Delete via Tina: ${existing.name}`,
-          sha: existing.sha,
-          branch: BRANCH,
-        }),
-      },
-    );
-    if (!ghRes.ok) {
-      const errBody = await ghRes.json();
-      return res
-        .status(502)
-        .json({ error: errBody.message || "GitHub delete failed" });
-    }
+    const dir = key.slice(0, key.lastIndexOf("/"));
+    const file = key.slice(key.lastIndexOf("/") + 1);
+    await removeManifestEntry(dir, file);
+
     return res.json({ ok: true });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });

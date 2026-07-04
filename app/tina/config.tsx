@@ -37,9 +37,10 @@ export default defineConfig({
     referenceDepth: 1,
   },
 
-  // Custom Media Store: lädt unsere GitHubMediaStore-Klasse, die Bilder
-  // direkt nach static/images/ im Hugo-Repo committet (siehe app/tina/
-  // media-store.ts und pages/api/media/*).
+  // Custom Media Store: lädt unsere S3MediaStore-Klasse — Bilder gehen in
+  // den Hetzner-S3-Media-Bucket und werden first-party über Caddy
+  // (bilder.statthus-husum.de) ausgeliefert (siehe app/lib/media-s3.ts
+  // und pages/api/media/*).
   media: {
     loadCustomStore: async () => {
       const pack = await import("./media-store");

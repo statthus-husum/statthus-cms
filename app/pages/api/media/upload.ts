@@ -1,37 +1,51 @@
 // Upload-Endpunkt für den Tina-Media-Manager.
 // - Auth: NextAuth-Session muss vorhanden sein (Tina-User eingeloggt)
-// - Speichert nach assets/images/uploads/ (oder einem Unterordner davon,
-//   wenn Tina das directory-Feld mitschickt). Wir trennen CMS-Uploads
-//   bewusst von den Theme-Assets unter assets/images/, damit der
-//   Media-Manager nur Editor-Inhalte zeigt.
-// - Hugo rendert Bilder via resources.Get aus dem assets/-Mount.
+// - Speichert in den Hetzner-S3-Media-Bucket unter uploads/<Ordner>/
+//   (siehe lib/media-s3.ts für Key-Layout und Hintergrund des Umzugs
+//   weg von Git-Commits ins Website-Repo).
+// - Erzeugt zusätzlich ein Thumbnail (_thumbs/<name>.webp) und schreibt
+//   den Ordner-Manifest-Eintrag fort (Galerie liest das client-seitig).
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
 import { readFile } from "fs/promises";
 import sharp from "sharp";
 
+import {
+  MEDIA_ROOT,
+  THUMB_DIM,
+  hasS3Credentials,
+  putObject,
+  publicUrl,
+  thumbKey,
+  contentTypeFor,
+  upsertManifestEntry,
+} from "../../../lib/media-s3";
+
 export const config = {
   api: { bodyParser: false },
 };
 
-const OWNER = process.env.GITHUB_OWNER || "statthus-husum";
-const REPO = process.env.GITHUB_REPO || "statthus-website";
-const BRANCH = process.env.GITHUB_BRANCH || "staging";
-const TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN!;
-const MEDIA_DIR = "assets/images/uploads";
-
-// Editor:innen laden oft Kamera-Originale hoch (mehrere MB, >4000px). Die
-// GitHub-Contents-API verträgt große base64-Payloads schlecht (Timeouts /
-// "gitrpc bad object"-Fehler bei der Freigabe), und Hugo müsste sie sonst bei
-// jedem Build neu verkleinern. Deshalb skalieren wir serverseitig auf eine
-// web-taugliche Größe herunter, bevor wir committen.
+// Editor:innen laden oft Kamera-Originale hoch (mehrere MB, >4000px).
+// Wir skalieren serverseitig auf eine web-taugliche Größe herunter —
+// die Website liefert die Bilder ohne weitere Verarbeitung aus.
 const MAX_DIM = 2500; // längste Kante in px
 const RASTER = new Set(["jpg", "jpeg", "png", "webp"]);
 
-async function optimizeImage(buf: Buffer, filename: string): Promise<Buffer> {
+type Optimized = {
+  buf: Buffer;
+  width: number | null;
+  height: number | null;
+  thumb: Buffer | null;
+};
+
+async function optimizeImage(buf: Buffer, filename: string): Promise<Optimized> {
   const ext = (filename.split(".").pop() || "").toLowerCase();
-  if (!RASTER.has(ext)) return buf; // svg/gif u.a. unangetastet lassen
+  if (!RASTER.has(ext)) {
+    // svg/gif u.a. unangetastet lassen — auch kein Thumb (svg skaliert
+    // ohnehin, gif-Animationen würde sharp zerlegen)
+    return { buf, width: null, height: null, thumb: null };
+  }
   try {
     let img = sharp(buf, { failOn: "none" }).rotate(); // EXIF-Orientierung anwenden
     const meta = await img.metadata();
@@ -41,10 +55,18 @@ async function optimizeImage(buf: Buffer, filename: string): Promise<Buffer> {
     if (ext === "png") img = img.png({ compressionLevel: 9 });
     else if (ext === "webp") img = img.webp({ quality: 82 });
     else img = img.jpeg({ quality: 82, mozjpeg: true });
-    const out = await img.toBuffer();
-    return out.length < buf.length ? out : buf; // nie größer machen
+    const { data, info } = await img.toBuffer({ resolveWithObject: true });
+    const out = data.length < buf.length ? data : buf; // nie größer machen
+
+    const thumb = await sharp(buf, { failOn: "none" })
+      .rotate()
+      .resize({ width: THUMB_DIM, height: THUMB_DIM, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    return { buf: out, width: info.width, height: info.height, thumb };
   } catch {
-    return buf; // im Zweifel das Original committen statt zu scheitern
+    return { buf, width: null, height: null, thumb: null }; // im Zweifel Original speichern statt scheitern
   }
 }
 
@@ -57,16 +79,17 @@ function isAuthed(req: NextApiRequest) {
   );
 }
 
-// Normalisiert das Upload-Verzeichnis auf einen Pfad innerhalb von MEDIA_DIR.
-// Tina sendet im Initial-State ihren publicFolder (z.B. "public") — den
-// mappen wir auf MEDIA_DIR, statt mit 400 abzulehnen. Echte Unterordner
-// unter MEDIA_DIR bleiben erhalten; ../-Traversal wird zurückgesetzt.
+// Normalisiert das Upload-Verzeichnis auf einen Pfad innerhalb von
+// MEDIA_ROOT. Tina sendet im Initial-State ihren publicFolder (z.B.
+// "public") — den mappen wir auf MEDIA_ROOT, statt mit 400 abzulehnen.
+// Echte Unterordner unter MEDIA_ROOT bleiben erhalten; ../-Traversal
+// wird zurückgesetzt.
 function safeMediaDir(raw: string): string {
   const trimmed = (raw || "").trim().replace(/^\/+|\/+$/g, "");
-  if (!trimmed || trimmed.includes("..")) return MEDIA_DIR;
-  if (trimmed === MEDIA_DIR) return trimmed;
-  if (trimmed.startsWith(MEDIA_DIR + "/")) return trimmed;
-  return MEDIA_DIR;
+  if (!trimmed || trimmed.includes("..")) return MEDIA_ROOT;
+  if (trimmed === MEDIA_ROOT) return trimmed;
+  if (trimmed.startsWith(MEDIA_ROOT + "/")) return trimmed;
+  return MEDIA_ROOT;
 }
 
 function safeName(name: string): string {
@@ -88,7 +111,7 @@ export default async function handler(
 ) {
   if (req.method !== "POST") return res.status(405).end();
   if (!isAuthed(req)) return res.status(401).json({ error: "Not authenticated" });
-  if (!TOKEN) return res.status(500).json({ error: "GitHub token not set" });
+  if (!hasS3Credentials()) return res.status(500).json({ error: "S3 credentials not set" });
 
   try {
     const form = formidable({ maxFileSize: 20 * 1024 * 1024 });
@@ -105,57 +128,31 @@ export default async function handler(
     let filename = safeName(original);
     if (!filename) filename = `upload-${Date.now()}`;
 
-    // Datei einlesen, ggf. herunterskalieren, base64-encoden
     const rawBuf = await readFile(uploaded.filepath);
-    const buf = await optimizeImage(rawBuf, filename);
-    const base64 = buf.toString("base64");
+    const { buf, width, height, thumb } = await optimizeImage(rawBuf, filename);
 
-    const path = `${targetDir}/${filename}`;
+    const key = `${targetDir}/${filename}`;
+    const tKey = thumb ? thumbKey(key) : null;
 
-    // Falls schon vorhanden: SHA holen, sonst null
-    let sha: string | undefined;
-    const existsRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(path)}?ref=${BRANCH}`,
-      { headers: { Authorization: `Bearer ${TOKEN}` } },
-    );
-    if (existsRes.ok) {
-      const existing = await existsRes.json();
-      sha = existing.sha;
-    }
+    await putObject(key, buf, contentTypeFor(filename));
+    if (thumb && tKey) await putObject(tKey, thumb, "image/webp");
 
-    const ghRes = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURI(path)}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          Accept: "application/vnd.github+json",
-        },
-        body: JSON.stringify({
-          message: `Media-Upload via Tina: ${filename}`,
-          content: base64,
-          branch: BRANCH,
-          ...(sha ? { sha } : {}),
-        }),
-      },
-    );
+    await upsertManifestEntry(targetDir, {
+      file: filename,
+      src: key,
+      thumb: tKey,
+      width,
+      height,
+    });
 
-    if (!ghRes.ok) {
-      const errBody = await ghRes.json();
-      return res
-        .status(502)
-        .json({ error: errBody.message || "GitHub upload failed" });
-    }
-
-    // Frontmatter-Konvention im statthus-website-Repo: relativer Pfad ohne
-    // führenden Slash, der vom Theme über resources.Get aus assets/ aufgelöst
-    // wird — z.B. "images/post/post-3.jpg".
-    const publicUrl = path.startsWith("assets/") ? path.slice("assets/".length) : path;
+    // Frontmatter-Konvention: absolute URL — das Theme-Partial image.html
+    // reicht http(s)-Quellen unverändert durch.
     return res.json({
-      id: path,
+      id: key,
       filename,
       directory: targetDir,
-      src: publicUrl,
+      src: publicUrl(key),
+      thumb: tKey ? publicUrl(tKey) : publicUrl(key),
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
