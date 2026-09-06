@@ -39,7 +39,15 @@ export const EventCollection: Collection = {
   },
   fields: [
     { type: "string", name: "title", label: "Titel", isTitle: true, required: true },
-    { type: "datetime", name: "date", label: "Veröffentlicht am", required: true },
+    {
+      type: "datetime",
+      name: "date",
+      label: "Veröffentlicht am",
+      required: true,
+      ui: { dateFormat: "DD.MM.YYYY" },
+      description:
+        "Steuert die Reihenfolge im News-Feed. Der Termin selbst steht unten unter „Beginn“.",
+    },
     {
       type: "string",
       name: "description",
@@ -55,8 +63,23 @@ export const EventCollection: Collection = {
       list: true,
       description: "Optional. Erstes Bild wird als Hauptbild verwendet.",
     },
-    { type: "datetime", name: "event_date", label: "Beginn", required: true },
-    { type: "datetime", name: "event_end", label: "Ende (optional)" },
+    // Ohne ui.timeFormat zeigt Tina nur einen Datums-Picker — die Uhrzeit
+    // ließ sich dann gar nicht eingeben. Tina speichert Datum+Zeit als UTC
+    // (…Z); die Hugo-Templates rechnen über partials/functions/event-time
+    // nach Europe/Berlin um.
+    {
+      type: "datetime",
+      name: "event_date",
+      label: "Beginn (Datum und Uhrzeit)",
+      required: true,
+      ui: { dateFormat: "DD.MM.YYYY", timeFormat: "HH:mm" },
+    },
+    {
+      type: "datetime",
+      name: "event_end",
+      label: "Ende (optional)",
+      ui: { dateFormat: "DD.MM.YYYY", timeFormat: "HH:mm" },
+    },
     { type: "string", name: "event_location", label: "Ort", required: true },
     {
       type: "string",
