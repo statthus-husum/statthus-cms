@@ -17,6 +17,10 @@ const BASE = process.env.BASE_PATH || "/freigabe";
 // Workflow-Datei im Website-Repo, die per workflow_dispatch gestartet wird
 // (Input `target: ftp` → nur der FTP-Upload, kein Pages-Deploy).
 const DEPLOY_WORKFLOW = process.env.DEPLOY_WORKFLOW || "deploy.yml";
+// Vorschau-Site (GitHub Pages). Wird bei jedem Push auf main automatisch
+// gebaut; die Live-Site (FTP) erst auf Knopfdruck, siehe /deploy-ftp.
+const PREVIEW_URL =
+  process.env.PREVIEW_URL || "https://statthus-husum.github.io/statthus-website/";
 
 if (!ADMIN_PASS || !GH_TOKEN) {
   console.error("[freigabe] Pflicht-Env fehlt: ADMIN_PASSWORD und/oder GITHUB_PERSONAL_ACCESS_TOKEN");
@@ -394,7 +398,7 @@ app.post("/merge", async (req, res) => {
 <ul>${includedPaths.map((p) => `<li>${escape(p)}</li>`).join("")}</ul>
 </details>
 <p class="cleanup-note">${escape(cleanup.message)}</p>
-<p>Die Site wird in 1–2 Minuten aktualisiert.</p>
+<p>Die <a href="${escape(PREVIEW_URL)}" target="_blank" rel="noopener">Vorschau-Site</a> wird in 1–2 Minuten aktualisiert. Wenn dort alles passt: in der Übersicht „Website per FTP hochladen“ klicken — erst dann ändert sich die Live-Site.</p>
 <p><a href="/">Zurück zur Übersicht</a></p>
 </body></html>`);
   } catch (err) {
@@ -673,7 +677,7 @@ ${count === 0
 ${renderDeploySection(data.lastRun)}
 
 ${count > 0 ? `
-<form method="POST" action="${BASE}/merge" onsubmit="return confirm('Wirklich freigeben? Die ausgewählten Änderungen erscheinen nach 1–2 Min auf der Live-Site.')">
+<form method="POST" action="${BASE}/merge" onsubmit="return confirm('Wirklich freigeben? Die ausgewählten Änderungen erscheinen nach 1–2 Min auf der Vorschau-Site. Die Live-Site ändert sich erst nach „Website per FTP hochladen“.')">
 
 <p><small>Häkchen entfernen, um eine Datei <em>nicht</em> freizugeben — sie wartet dann auf den nächsten Durchgang.</small></p>
 
@@ -708,7 +712,7 @@ function renderDeploySection(run) {
       dateStyle: "short",
       timeStyle: "short",
     });
-    const via = run.event === "workflow_dispatch" ? "manuell" : "automatisch nach Freigabe";
+    const via = run.event === "workflow_dispatch" ? "Live-Site (FTP)" : "Vorschau-Site";
     let label;
     if (run.status !== "completed") label = "⏳ läuft gerade";
     else if (run.conclusion === "success") label = "✅ erfolgreich";
@@ -720,10 +724,10 @@ function renderDeploySection(run) {
   return `
 <div class="deploy">
   <h2>Live-Site hochladen</h2>
-  <p><small>Nach jeder Freigabe wird die Live-Site automatisch neu gebaut und hochgeladen. Mit diesem Knopf lässt sich der FTP-Upload jederzeit einzeln anstoßen.</small></p>
+  <p><small>Nach einer Freigabe wird nur die <a href="${escape(PREVIEW_URL)}" target="_blank" rel="noopener">Vorschau-Site</a> neu gebaut. Wenn sie in Ordnung ist, lädt dieser Knopf den aktuellen Stand per FTP auf die Live-Site.</small></p>
   ${status}
-  <form method="POST" action="${BASE}/deploy-ftp" onsubmit="return confirm('Live-Site jetzt neu bauen und per FTP hochladen?')">
-    <button class="btn" type="submit" ${running ? "disabled" : ""}>Website per FTP neu hochladen</button>
+  <form method="POST" action="${BASE}/deploy-ftp" onsubmit="return confirm('Aktuellen Stand jetzt auf die Live-Site hochladen?')">
+    <button class="btn" type="submit" ${running ? "disabled" : ""}>Website per FTP hochladen</button>
   </form>
 </div>`;
 }
