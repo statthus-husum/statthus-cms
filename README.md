@@ -48,7 +48,7 @@ $EDITOR .env
 ```
 
 In der `.env` zwingend zu setzen:
-- `GITHUB_PERSONAL_ACCESS_TOKEN` — Fine-grained PAT mit `Contents: Read & Write` nur auf `statthus-website`
+- `GITHUB_PERSONAL_ACCESS_TOKEN` — Fine-grained PAT nur auf `statthus-website` mit `Contents: Read & Write` und `Actions: Read & Write` (letzteres für den Knopf „Website per FTP neu hochladen“ in der Freigabe-App, der den Deploy-Workflow per workflow_dispatch startet)
 - `NEXTAUTH_SECRET` — `openssl rand -base64 32`
 - `MONGO_PASS` — beliebiges starkes Passwort (wird beim ersten Mongo-Start gesetzt)
 - `FREIGABE_PASS` — Passwort für die Approval-App unter `/freigabe/`

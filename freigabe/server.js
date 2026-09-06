@@ -14,6 +14,9 @@ const GH_REPO = process.env.GITHUB_REPO || "statthus-website";
 const STAGING = process.env.STAGING_BRANCH || "staging";
 const PROD = process.env.PROD_BRANCH || "main";
 const BASE = process.env.BASE_PATH || "/freigabe";
+// Workflow-Datei im Website-Repo, die per workflow_dispatch gestartet wird
+// (Input `target: ftp` → nur der FTP-Upload, kein Pages-Deploy).
+const DEPLOY_WORKFLOW = process.env.DEPLOY_WORKFLOW || "deploy.yml";
 
 if (!ADMIN_PASS || !GH_TOKEN) {
   console.error("[freigabe] Pflicht-Env fehlt: ADMIN_PASSWORD und/oder GITHUB_PERSONAL_ACCESS_TOKEN");
@@ -189,9 +192,64 @@ async function computePending() {
   return pending;
 }
 
+// Letzter Lauf des Deploy-Workflows — für die Anzeige im Dashboard.
+// Braucht am PAT die Berechtigung "Actions: Read". Fehlt sie, liefern wir
+// null und das Dashboard zeigt schlicht keinen Status.
+async function fetchLastDeployRun() {
+  try {
+    const data = await gh(
+      `/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${DEPLOY_WORKFLOW}/runs?per_page=1`,
+    );
+    const run = data?.workflow_runs?.[0];
+    if (!run) return null;
+    return {
+      status: run.status, // queued | in_progress | completed
+      conclusion: run.conclusion, // success | failure | cancelled | null
+      event: run.event, // push | workflow_dispatch
+      url: run.html_url,
+      startedAt: run.run_started_at || run.created_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// FTP-Upload der Live-Site anstoßen: workflow_dispatch mit target=ftp auf
+// main. GitHub antwortet 204 ohne Body. Braucht am PAT "Actions: Read &
+// Write" — sonst 403, und wir sagen im Fehlertext, was fehlt.
+app.post("/deploy-ftp", async (req, res) => {
+  try {
+    await gh(
+      `/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${DEPLOY_WORKFLOW}/dispatches`,
+      {
+        method: "POST",
+        body: JSON.stringify({ ref: PROD, inputs: { target: "ftp" } }),
+      },
+    );
+    return res
+      .set("Content-Type", "text/html; charset=utf-8")
+      .send(noticePage(
+        "FTP-Upload gestartet",
+        "Die Live-Site wird jetzt neu gebaut und per FTP hochgeladen. Das dauert etwa 2–3 Minuten. Der Stand des Laufs steht in der Übersicht.",
+      ));
+  } catch (err) {
+    const hint =
+      err?.status === 403 || err?.status === 404
+        ? " — Der GitHub-Token braucht dafür die Berechtigung „Actions: Read & Write“ auf dem Website-Repo."
+        : "";
+    res
+      .status(500)
+      .set("Content-Type", "text/html; charset=utf-8")
+      .send(errorPage(`FTP-Upload konnte nicht gestartet werden: ${err.message}${hint}`));
+  }
+});
+
 app.get("/", async (req, res) => {
   try {
-    const pending = await computePending();
+    const [pending, lastRun] = await Promise.all([
+      computePending(),
+      fetchLastDeployRun(),
+    ]);
 
     // Pro Datei: letzten Commit + Titel parallel holen
     const enriched = await Promise.all(
@@ -211,7 +269,7 @@ app.get("/", async (req, res) => {
 
     res
       .set("Content-Type", "text/html; charset=utf-8")
-      .send(renderDashboard({ files: enriched }));
+      .send(renderDashboard({ files: enriched, lastRun }));
   } catch (err) {
     res.status(500).send(errorPage(err.message));
   }
@@ -437,6 +495,9 @@ body{font-family:system-ui,-apple-system,sans-serif;max-width:56rem;margin:2rem 
 h1{margin-bottom:.5rem}
 .status{padding:.75rem 1rem;border-radius:.5rem;background:#eef;margin:1rem 0;border-left:4px solid #69c}
 .status.empty{background:#efe;border-left-color:#5a5}
+    .deploy { margin: 1.5rem 0; padding: 1rem 1.25rem; border: 1px solid #ddd; border-radius: 8px; }
+    .deploy h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
+    .deploy-status { margin: .5rem 0 .75rem; }
 .btn{display:inline-block;padding:.75rem 1.5rem;background:#16a34a;color:#fff;text-decoration:none;border:0;border-radius:.5rem;font-size:1rem;cursor:pointer;font-weight:600}
 .btn:hover{background:#15803d}
 .btn[disabled]{background:#999;cursor:not-allowed}
@@ -609,6 +670,8 @@ ${count === 0
   : `📝 <strong>${count}</strong> ${count === 1 ? "Datei wartet" : "Dateien warten"} auf Freigabe.`}
 </div>
 
+${renderDeploySection(data.lastRun)}
+
 ${count > 0 ? `
 <form method="POST" action="${BASE}/merge" onsubmit="return confirm('Wirklich freigeben? Die ausgewählten Änderungen erscheinen nach 1–2 Min auf der Live-Site.')">
 
@@ -632,6 +695,37 @@ ${FILE_LIST_SCRIPT}
 ` : ""}
 
 </body></html>`;
+}
+
+// Abschnitt „Live-Site hochladen“: Status des letzten Workflow-Laufs plus
+// Button, der den FTP-Upload allein anstößt (z.B. nach Änderungen, die
+// keinen Push auf main auslösen, oder wenn der Upload hakte).
+function renderDeploySection(run) {
+  let status = "";
+  if (run) {
+    const when = new Date(run.startedAt).toLocaleString("de-DE", {
+      timeZone: "Europe/Berlin",
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+    const via = run.event === "workflow_dispatch" ? "manuell" : "automatisch nach Freigabe";
+    let label;
+    if (run.status !== "completed") label = "⏳ läuft gerade";
+    else if (run.conclusion === "success") label = "✅ erfolgreich";
+    else if (run.conclusion === "cancelled") label = "⛔ abgebrochen";
+    else label = "❌ fehlgeschlagen";
+    status = `<p class="deploy-status">Letzter Lauf: ${label} · ${escape(when)} · ${via} · <a href="${escape(run.url)}" target="_blank" rel="noopener">Details</a></p>`;
+  }
+  const running = run && run.status !== "completed";
+  return `
+<div class="deploy">
+  <h2>Live-Site hochladen</h2>
+  <p><small>Nach jeder Freigabe wird die Live-Site automatisch neu gebaut und hochgeladen. Mit diesem Knopf lässt sich der FTP-Upload jederzeit einzeln anstoßen.</small></p>
+  ${status}
+  <form method="POST" action="${BASE}/deploy-ftp" onsubmit="return confirm('Live-Site jetzt neu bauen und per FTP hochladen?')">
+    <button class="btn" type="submit" ${running ? "disabled" : ""}>Website per FTP neu hochladen</button>
+  </form>
+</div>`;
 }
 
 function noticePage(title, body) {
