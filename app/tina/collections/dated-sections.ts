@@ -134,6 +134,22 @@ const presse = makeDatedSection({
   dateDescription:
     "Erscheinungsdatum des Beitrags. Bestimmt die Reihenfolge; angezeigt wird das volle Datum.",
   extraFields: [
+    // Werte müssen zur $typen-Tabelle im Website-Partial
+    // layouts/partials/dated-sections.html passen (Symbol + Bezeichnung).
+    {
+      type: "string",
+      name: "typ",
+      label: "Art des Beitrags",
+      options: [
+        { value: "zeitung", label: "Zeitung / Print" },
+        { value: "tv", label: "TV" },
+        { value: "radio", label: "Radio" },
+        { value: "web", label: "Online / Web" },
+        { value: "podcast", label: "Podcast" },
+        { value: "sonstiges", label: "Sonstiges" },
+      ],
+      description: "Erscheint als kleine Marke mit Symbol über dem Titel.",
+    },
     {
       type: "string",
       name: "quelle",
