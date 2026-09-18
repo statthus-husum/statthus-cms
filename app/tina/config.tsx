@@ -4,7 +4,12 @@ import {
 } from "tinacms-authjs/dist/tinacms";
 import { defineConfig, LocalAuthProvider } from "tinacms";
 
-import { ChronikCollection, ChronikIntroCollection } from "./collections/chronik";
+import {
+  ChronikCollection,
+  ChronikIntroCollection,
+  PresseCollection,
+  PresseIntroCollection,
+} from "./collections/dated-sections";
 import { EventCollection } from "./collections/event";
 import { NewsCollection } from "./collections/news";
 import { PersonCollection } from "./collections/person";
@@ -75,6 +80,9 @@ export default defineConfig({
       // Chronik
       ChronikCollection,
       ChronikIntroCollection,
+      // Presse und Medien
+      PresseCollection,
+      PresseIntroCollection,
       // „Weiteres" (nur Themen-Kopftexte)
       ThemenFilterCollection,
       // Ungruppiert (ganz am Ende)

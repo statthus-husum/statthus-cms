@@ -239,11 +239,12 @@
  * Sidebar-Gruppierung: klappbare Köpfe für Collection-Gruppen.
  *
  * TinaCMS hat kein natives Collection-Grouping — jede Collection ist ein
- * flacher Sidebar-Link. Fünf THEMEN-Gruppen werden zusammengefasst:
+ * flacher Sidebar-Link. Sechs THEMEN-Gruppen werden zusammengefasst:
  *   - "News"           : news, news_intro
  *   - "Veranstaltungen": event, event_intro
  *   - "Bewohner:innen" : person, people_intro
  *   - "Chronik"        : chronik, chronik_intro
+ *   - "Presse"         : presse, presse_intro
  *   - "Weiteres"       : themen_intro (Themen-Kopftexte)
  * Ungruppiert (bewusst, ganz am Ende): user.
  * Voraussetzung: jede Gruppe ist in config.tsx ZUSAMMENHÄNGEND
@@ -293,6 +294,12 @@
       id: "statthus-group-chronik",
       label: "Chronik",
       re: /^#\/collections\/chronik(?:_intro)?(?:[/?].*)?$/,
+    },
+    {
+      key: "statthus.group.presse",
+      id: "statthus-group-presse",
+      label: "Presse und Medien",
+      re: /^#\/collections\/presse(?:_intro)?(?:[/?].*)?$/,
     },
     {
       key: "statthus.group.weiteres",
