@@ -4,6 +4,7 @@ import {
 } from "tinacms-authjs/dist/tinacms";
 import { defineConfig, LocalAuthProvider } from "tinacms";
 
+import { ChronikCollection, ChronikIntroCollection } from "./collections/chronik";
 import { EventCollection } from "./collections/event";
 import { NewsCollection } from "./collections/news";
 import { PersonCollection } from "./collections/person";
@@ -71,6 +72,9 @@ export default defineConfig({
       // Bewohner:innen
       PersonCollection,
       PeopleIntroCollection,
+      // Chronik
+      ChronikCollection,
+      ChronikIntroCollection,
       // „Weiteres" (nur Themen-Kopftexte)
       ThemenFilterCollection,
       // Ungruppiert (ganz am Ende)

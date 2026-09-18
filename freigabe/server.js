@@ -43,6 +43,7 @@ const EDITOR_PREFIXES = [
   "content/german/news/",
   "content/german/people/",
   "content/german/themen/",
+  "content/german/chronik/",
 ];
 
 function isEditorPath(path) {
@@ -143,6 +144,7 @@ function kindLabelForPath(path) {
   if (/^content\/german\/news\//.test(path)) return "News";
   if (/^content\/german\/people\//.test(path)) return "Bewohner:in";
   if (/^content\/german\/themen\//.test(path)) return "Themen-Intro";
+  if (/^content\/german\/chronik\//.test(path)) return "Chronik";
   if (/^content\/users\//.test(path)) return "Editor-Account";
   return null;
 }

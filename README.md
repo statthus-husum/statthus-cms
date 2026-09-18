@@ -97,6 +97,7 @@ Definiert in [`app/tina/config.tsx`](app/tina/config.tsx) und [`app/tina/collect
 |---|---|---|
 | `event` | `content/german/event/` | Termine mit `event_date`/`event_end`/`event_location` |
 | `news` | `content/german/news/` | Nachrichten ohne Termin |
+| `chronik` | `content/german/chronik/` | Chronik-Einträge (Über uns → Chronik), paginierte Abschnitte ohne eigene URL |
 | `person` | `content/german/people/` | Bewohner:innen-Steckbriefe |
 | `themen_intro` | `content/german/themen/<term>/_index.md` | Einleitungstexte der Filterseiten (nur Edit, kein Create/Delete) |
 | `users` (intern) | `content/users/index.json` | Editor-Accounts |
