@@ -31,7 +31,7 @@ if (!ADMIN_PASS || !GH_TOKEN) {
 // Genau die Verzeichnisse, die Tina als Collections kennt (Spiegelbild von
 // app/docker-entrypoint.sh:TINA_PATHS). Theme-Code, Layouts, Hugo-Config,
 // package.json sowie content/-Unterordner, die NICHT in Tina editiert
-// werden (z.B. content/german/newsletter, content/german/about, und seit
+// werden (z.B. content/german/about, und seit
 // dem CMS-Rückbau auch content/german/{projekt,member,help}) bleiben damit
 // gegenüber der Freigabe unsichtbar — wenn jemand direkt auf main an
 // Theme/Code/Hugo-Pages arbeitet, überschreibt eine Freigabe das nicht.
@@ -45,6 +45,7 @@ const EDITOR_PREFIXES = [
   "content/german/themen/",
   "content/german/chronik/",
   "content/german/presse/",
+  "content/german/newsletter/",
 ];
 
 function isEditorPath(path) {
@@ -147,6 +148,7 @@ function kindLabelForPath(path) {
   if (/^content\/german\/themen\//.test(path)) return "Themen-Intro";
   if (/^content\/german\/chronik\//.test(path)) return "Chronik";
   if (/^content\/german\/presse\//.test(path)) return "Presse";
+  if (/^content\/german\/newsletter\//.test(path)) return "Newsletter-Ausgabe";
   if (/^content\/users\//.test(path)) return "Editor-Account";
   return null;
 }

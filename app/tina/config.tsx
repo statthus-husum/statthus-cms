@@ -7,6 +7,7 @@ import { defineConfig, LocalAuthProvider } from "tinacms";
 import {
   ChronikCollection,
   ChronikIntroCollection,
+  NewsletterCollection,
   PresseCollection,
   PresseIntroCollection,
 } from "./collections/dated-sections";
@@ -83,6 +84,8 @@ export default defineConfig({
       // Presse und Medien
       PresseCollection,
       PresseIntroCollection,
+      // Newsletter-Archiv (nur Ausgaben; die Seite selbst bleibt in Git)
+      NewsletterCollection,
       // „Weiteres" (nur Themen-Kopftexte)
       ThemenFilterCollection,
       // Ungruppiert (ganz am Ende)

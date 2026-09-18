@@ -25,6 +25,7 @@ Beim ersten Login wirst du aufgefordert, ein eigenes Passwort zu setzen. Tu das 
 | **News-Beiträge** | Nachrichten ohne festen Termin (Baufortschritt, neue Förderung …) |
 | **Chronik-Einträge** | Stationen der staTThus-Geschichte (Über uns → Chronik). Anlegen wie ein News-Beitrag: Titel, Datum, Bilder, Text. |
 | **Presse-Einträge** | Berichte über das staTThus (Über uns → Presse und Medien). Wie Chronik, zusätzlich Medium und Link zum Beitrag. |
+| **Newsletter-Ausgaben** | Archiv auf der Newsletter-Seite: Titel, Versanddatum, Kurztext und Link zur Webversion (oder Volltext zum Aufklappen). |
 | **Bewohner:innen** | Steckbriefe von Personen, die im staTThus wohnen |
 | **Themen-Intros** | Die Einleitungstexte für „Wie wir leben" und „Wir im Quartier" |
 | **Users** | Editor-Accounts (nur für Admins relevant) |

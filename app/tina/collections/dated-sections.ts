@@ -1,7 +1,10 @@
 import type { Collection } from "tinacms";
 
-// Datierte Abschnitts-Seiten unter „Über uns“: Chronik (/chronik/) und
-// Presse und Medien (/presse/). Einträge erscheinen auf der Website als
+// Datierte Abschnitts-Seiten: Chronik (/chronik/) und Presse und Medien
+// (/presse/) unter „Über uns“, dazu das Newsletter-Archiv (/newsletter/,
+// kompakte Liste ohne Bilder und ohne Kopftext-Collection — das
+// _index.md dort ist rohes Brevo-Formular-HTML, das Tinas Rich-Text-Editor
+// zerstören würde). Einträge erscheinen auf der Website als
 // Abschnitte im Stil der Projekt-Seite — paginiert, ohne eigene URL je
 // Eintrag (Hugo-seitig per cascade build.render = never in
 // config/_default/hugo.toml). Pflege wie bei News: Titel, Datum, Bilder,
@@ -37,7 +40,35 @@ function makeDatedSection(opts: {
   // Zusätzliche Felder, direkt nach dem Datum eingefügt (z.B. Presse:
   // Quelle + Link).
   extraFields?: Field[];
+  // false: keine Bild-Felder (Newsletter-Archiv ist eine reine Textliste).
+  images?: boolean;
+  bodyLabel?: string;
 }): { entries: Collection; intro: Collection } {
+  const imageFields: Field[] =
+    opts.images === false
+      ? []
+      : [
+          {
+            type: "image",
+            name: "images",
+            label: "Bilder",
+            list: true,
+            description:
+              "Optional. Das erste Bild steht groß neben dem Text, weitere erscheinen als Miniaturen darunter.",
+          },
+          {
+            type: "string",
+            name: "image_position",
+            label: "Bild-Position (optional)",
+            options: [
+              { value: "right", label: "rechts" },
+              { value: "left", label: "links" },
+            ],
+            description:
+              "Leer lassen: die Seite wechselt automatisch zwischen rechts und links.",
+          },
+        ];
+
   const entries: Collection = {
     name: opts.name,
     label: opts.label,
@@ -67,26 +98,9 @@ function makeDatedSection(opts: {
           'Ersetzt die Datums-Anzeige, z.B. „2015“, „Frühjahr 2014“ oder „18. Mai 2026“.',
       },
       ...(opts.extraFields || []),
-      {
-        type: "image",
-        name: "images",
-        label: "Bilder",
-        list: true,
-        description:
-          "Optional. Das erste Bild steht groß neben dem Text, weitere erscheinen als Miniaturen darunter.",
-      },
-      {
-        type: "string",
-        name: "image_position",
-        label: "Bild-Position (optional)",
-        options: [
-          { value: "right", label: "rechts" },
-          { value: "left", label: "links" },
-        ],
-        description: "Leer lassen: die Seite wechselt automatisch zwischen rechts und links.",
-      },
+      ...imageFields,
       { type: "boolean", name: "draft", label: "Entwurf", description: "Wenn an, nicht veröffentlicht." },
-      { type: "rich-text", name: "body", label: "Inhalt", isBody: true },
+      { type: "rich-text", name: "body", label: opts.bodyLabel || "Inhalt", isBody: true },
     ],
   };
 
@@ -173,3 +187,37 @@ const presse = makeDatedSection({
 });
 export const PresseCollection = presse.entries;
 export const PresseIntroCollection = presse.intro;
+
+// Newsletter-Archiv: nur die Ausgaben. KEINE Kopftext-Collection — siehe
+// Dateikopf (newsletter/_index.md = Brevo-Formular, nur per Git pflegen).
+const newsletter = makeDatedSection({
+  name: "newsletter",
+  label: "Newsletter-Ausgaben",
+  introLabel: "(nicht registriert)",
+  images: false,
+  bodyLabel: "Volltext (optional)",
+  dateDescription: "Versanddatum der Ausgabe. Neueste Ausgaben stehen im Archiv oben.",
+  extraFields: [
+    {
+      type: "string",
+      name: "description",
+      label: "Kurztext",
+      ui: { component: "textarea" },
+      description: "Ein bis zwei Sätze: Was steht in dieser Ausgabe?",
+    },
+    {
+      type: "string",
+      name: "link",
+      label: "Link zur Ausgabe (optional)",
+      description:
+        "Webversion („Im Browser ansehen“) mit https://… oder ein PDF auf der Website, z.B. /dokumente/newsletter/2025-03.pdf. Ohne Link: Volltext unten einfügen, er klappt dann im Archiv auf.",
+    },
+    {
+      type: "string",
+      name: "link_text",
+      label: "Knopf-Beschriftung (optional)",
+      description: 'Standard: „Ausgabe ansehen“. Z.B. „Als PDF“.',
+    },
+  ],
+});
+export const NewsletterCollection = newsletter.entries;

@@ -99,6 +99,7 @@ Definiert in [`app/tina/config.tsx`](app/tina/config.tsx) und [`app/tina/collect
 | `news` | `content/german/news/` | Nachrichten ohne Termin |
 | `chronik` | `content/german/chronik/` | Chronik-Einträge (Über uns → Chronik), paginierte Abschnitte ohne eigene URL |
 | `presse` | `content/german/presse/` | Presse und Medien (Über uns), wie Chronik plus Quelle und Link zum Beitrag |
+| `newsletter` | `content/german/newsletter/` | Newsletter-Archiv auf /newsletter/ (nur die Ausgaben; `_index.md` mit dem Brevo-Formular bleibt Git-gepflegt) |
 | `person` | `content/german/people/` | Bewohner:innen-Steckbriefe |
 | `themen_intro` | `content/german/themen/<term>/_index.md` | Einleitungstexte der Filterseiten (nur Edit, kein Create/Delete) |
 | `users` (intern) | `content/users/index.json` | Editor-Accounts |
