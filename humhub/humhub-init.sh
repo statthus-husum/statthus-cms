@@ -21,6 +21,10 @@ cp -rn /opt/humhub/protected/config/ /data/
 cp -rn /opt/humhub/uploads/ /data/
 chown -R www-data:www-data /data
 chmod o+x /data
+# Yii-Runtime (Cache, Logs-Symlink) gehört im Image root; das Entrypoint chownt es
+# ebenfalls — sonst scheitert `yii` mit „Failed to create directory /app/runtime/cache“.
+mkdir -p /app/runtime
+chown -R www-data:www-data /app/runtime
 
 yii() { /app/yii "$@"; }   # Wrapper wechselt als root automatisch zu www-data
 
