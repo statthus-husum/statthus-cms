@@ -1,0 +1,30 @@
+# HumHub-Demo — wird vom Caddyfile per `import /etc/caddy/sites/*.caddy`
+# geladen, aber nur wenn humhub/compose.yml aktiv ist (das mountet diese Datei).
+# HUMHUB_DOMAIN braucht einen A-Record auf die VM, sonst bekommt Caddy kein
+# Let's-Encrypt-Zertifikat (CMS-Domain ist davon nicht betroffen).
+#
+# Später (Phase 1 der Zielarchitektur): nur noch aus dem WireGuard-Netz,
+# z. B. `@extern not remote_ip 10.8.0.0/24` + `respond @extern 403`.
+
+{$HUMHUB_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Interne Plattform — nicht in Suchmaschinen
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# Caddy setzt X-Forwarded-For/-Proto/-Host automatisch; HumHub vertraut
+	# dem Netz statthus-humhub (TRUSTED_HOSTS in humhub/compose.yml).
+	reverse_proxy humhub:80
+
+	log {
+		output stdout
+		format console
+		level INFO
+	}
+}
