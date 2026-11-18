@@ -1,0 +1,131 @@
+# HumHub-Demo (Community-Plattform) — Compose-Override zum CMS-Stack.
+#
+# Aktivierung: in /opt/cms/.env
+#   COMPOSE_FILE=docker-compose.yml:humhub/compose.yml
+# Ohne diese Zeile wird die Datei gar nicht gelesen — der CMS-Stack bleibt
+# exakt wie vorher (kein Netz, kein Caddy-Site-Block, keine Container).
+# Relative Pfade gelten relativ zum CMS-Repo-Root (erste Compose-Datei).
+#
+# Isolation: HumHub + MariaDB hängen NUR im Netz `statthus-humhub`. Sie sehen
+# weder Mongo noch Tina noch Freigabe. Einzig Caddy hängt in beiden Netzen und
+# terminiert TLS für HUMHUB_DOMAIN (Site-Block: humhub/humhub.caddy).
+#
+# Installation: `humhub-init` installiert HumHub per CLI, BEVOR der
+# Web-Container startet. Der Web-Installer ist damit nie öffentlich
+# erreichbar (sonst legt der erste Besucher den Admin an).
+#
+# Secrets (aus OpenBao customers/statthus/cms → bin/gen-cms-env.sh):
+#   HUMHUB_DB_PASS, HUMHUB_DB_ROOT_PASS, HUMHUB_ADMIN_PASS, HUMHUB_ADMIN_EMAIL
+# Konfiguration: HUMHUB_DOMAIN (Default humhub.178-105-26-106.sslip.io, kein DNS nötig), HUMHUB_VERSION.
+
+x-humhub-image: &humhub-image humhub/humhub:${HUMHUB_VERSION:-1.19.4}
+
+x-humhub-env: &humhub-env
+  # Plain HTTP im Container — TLS macht der vorgelagerte statthus-caddy.
+  SERVER_NAME: ":80"
+  HUMHUB_CONFIG__COMPONENTS__DB__DSN: "mysql:host=humhub-db;dbname=humhub"
+  HUMHUB_CONFIG__COMPONENTS__DB__USERNAME: humhub
+  HUMHUB_CONFIG__COMPONENTS__DB__PASSWORD: ${HUMHUB_DB_PASS:-}
+  # Caddy als vertrauenswürdigen Proxy akzeptieren (X-Forwarded-Proto/-For),
+  # sonst erzeugt HumHub http://-Links und sieht nur Caddys IP. Prefix
+  # HUMHUB_WEB_CONFIG__ ist Pflicht (siehe humhub/docker docs/custom-tls.md).
+  HUMHUB_WEB_CONFIG__COMPONENTS__REQUEST__TRUSTED_HOSTS: '["10.250.50.0/24"]'
+  # RAM sparen: ein Queue-Worker reicht für die Demo (Default 2).
+  HUMHUB_DOCKER__NUMPROCS_WORKER: "1"
+
+services:
+  humhub-db:
+    image: mariadb:11.4
+    container_name: statthus-humhub-db
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+    environment:
+      MARIADB_DATABASE: humhub
+      MARIADB_USER: humhub
+      MARIADB_PASSWORD: ${HUMHUB_DB_PASS:-}
+      MARIADB_ROOT_PASSWORD: ${HUMHUB_DB_ROOT_PASS:-}
+    volumes:
+      - ${CMS_DATA_DIR:-./data}/humhub/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 768m
+    networks:
+      - humhub
+
+  humhub-init:
+    image: *humhub-image
+    container_name: statthus-humhub-init
+    restart: "no"
+    user: root
+    command: ["bash", "/init/humhub-init.sh"]
+    depends_on:
+      humhub-db:
+        condition: service_healthy
+    environment:
+      <<: *humhub-env
+      HUMHUB_DOMAIN: ${HUMHUB_DOMAIN:-humhub.178-105-26-106.sslip.io}
+      HUMHUB_SITE_NAME: ${HUMHUB_SITE_NAME:-staTThus Gemeinschaft}
+      HUMHUB_ADMIN_USER: ${HUMHUB_ADMIN_USER:-admin}
+      HUMHUB_ADMIN_EMAIL: ${HUMHUB_ADMIN_EMAIL:-}
+      HUMHUB_ADMIN_PASS: ${HUMHUB_ADMIN_PASS:-}
+    volumes:
+      - ${CMS_DATA_DIR:-./data}/humhub/data:/data
+      - ./humhub/humhub-init.sh:/init/humhub-init.sh:ro
+    networks:
+      - humhub
+
+  humhub:
+    image: *humhub-image
+    container_name: statthus-humhub
+    restart: unless-stopped
+    depends_on:
+      humhub-init:
+        condition: service_completed_successfully
+    environment: *humhub-env
+    volumes:
+      - ${CMS_DATA_DIR:-./data}/humhub/data:/data
+    # Kein Port auf dem Host — nur Caddy erreicht HumHub über das Docker-Netz.
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "/app/bin/humhub-simple-healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    mem_limit: 1g
+    networks:
+      - humhub
+
+  # ---- Ergänzungen an bestehenden CMS-Services (Compose merged sie) ----
+
+  caddy:
+    environment:
+      - HUMHUB_DOMAIN=${HUMHUB_DOMAIN:-humhub.178-105-26-106.sslip.io}
+    volumes:
+      # Der Caddyfile importiert /etc/caddy/sites/*.caddy (ohne Treffer: nur Warnung).
+      - ./humhub/humhub.caddy:/etc/caddy/sites/humhub.caddy:ro
+    networks:
+      - statthus
+      - humhub
+
+  mongo:
+    # MongoDB nimmt sonst ~50 % des Host-RAMs als Cache (≈3,5 GB auf der CPX32).
+    # Der Tina-Index ist winzig; 0,5 GB lassen Platz für HumHub.
+    command: ["--wiredTigerCacheSizeGB", "0.5"]
+
+networks:
+  humhub:
+    name: statthus-humhub
+    ipam:
+      config:
+        # Fest, damit TRUSTED_HOSTS oben exakt Caddys Netz trifft.
+        # Außerhalb der Docker-Default-Pools und des WireGuard-Netzes (10.8.0.0/24).
+        - subnet: 10.250.50.0/24

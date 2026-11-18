@@ -98,3 +98,8 @@
     }
 }
 
+
+# Zusätzliche Sites aus optionalen Compose-Overrides (z. B. humhub/compose.yml
+# mountet humhub/humhub.caddy hierher). Ohne Treffer loggt Caddy nur eine
+# Warnung — der CMS-Stack startet unverändert.
+import /etc/caddy/sites/*.caddy

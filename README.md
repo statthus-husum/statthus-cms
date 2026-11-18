@@ -160,6 +160,53 @@ docker compose up -d tina freigabe
 Totaler VM-Verlust: neue VM via `tofu apply`, `.env` neu setzen
 (inkl. `S3_*`), `docker compose up -d --build`, dann `restore.sh`.
 
+## HumHub-Demo (optional)
+
+Community-Plattform für Bewohner:innen, als **abschaltbares Compose-Override**
+in `humhub/`. Ohne Aktivierung ändert sich am CMS-Stack nichts.
+
+| Teil | Zweck |
+|---|---|
+| `humhub/compose.yml` | `humhub-db` (MariaDB 11.4), `humhub-init` (CLI-Installation), `humhub` (offizielles Image `humhub/humhub`), eigenes Netz `statthus-humhub`; begrenzt Mongos Cache auf 0,5 GB |
+| `humhub/humhub-init.sh` | installiert HumHub einmalig per `yii installer/*`, **bevor** der Web-Container startet (kein öffentlicher Web-Installer); schaltet Selbstregistrierung und Gastzugang ab |
+| `humhub/humhub.caddy` | Site-Block für `HUMHUB_DOMAIN`, eingebunden über `import /etc/caddy/sites/*.caddy` |
+
+**Aktivieren** (Werte kommen über `bin/gen-cms-env.sh` aus OpenBao):
+
+```bash
+# /opt/cms/.env
+COMPOSE_FILE=docker-compose.yml:humhub/compose.yml
+HUMHUB_DOMAIN=humhub.178-105-26-106.sslip.io   # oder eigene Domain mit A-Record
+HUMHUB_DB_PASS=…  HUMHUB_DB_ROOT_PASS=…  HUMHUB_ADMIN_PASS=…  HUMHUB_ADMIN_EMAIL=…
+```
+
+```bash
+cd /opt/cms && git pull && docker compose up -d
+docker compose logs humhub-init     # „fertig: https://…“
+```
+
+Login danach mit `admin` / `HUMHUB_ADMIN_PASS`. Mitglieder legt ein Admin unter
+*Administration → Benutzer* an (kein SMTP konfiguriert, daher keine Einladungs-Mails).
+
+**Ohne eigenen DNS-Record** (Demo): `HUMHUB_DOMAIN=humhub.178-105-26-106.sslip.io`.
+sslip.io löst den Namen auf die eingebettete IP auf; Caddy bekommt trotzdem ein
+Let's-Encrypt-Zertifikat. Nebenwirkung: DNS-Anfragen der Besucher:innen gehen an sslip.io.
+
+**Domain wechseln** (z. B. sslip.io → `humhub.statthus-husum.de`, A-Record vorher setzen):
+`HUMHUB_DOMAIN` in der `.env` ändern, dann
+
+```bash
+docker compose up -d caddy humhub
+docker compose exec humhub /app/yii installer/set-base-url https://<neue-domain>
+docker compose exec humhub /app/yii cache/flush-all
+```
+
+`humhub-init` läuft nach der Erstinstallation nicht mehr — die Base-URL muss daher
+von Hand nachgezogen werden.
+
+**Abschalten:** `COMPOSE_FILE`-Zeile entfernen, `docker compose up -d --remove-orphans`.
+Daten bleiben unter `/opt/cms-data/humhub/`. **Kein Backup** — Demo-Daten gelten als wegwerfbar.
+
 ## Lokale Entwicklung
 
 Siehe [`app/README.md`](app/README.md). Kurz: `cd app && npm install && npm run dev` — startet Tina im Local-Mode (kein Auth, Filesystem statt MongoDB).
@@ -171,4 +218,5 @@ Siehe [`app/README.md`](app/README.md). Kurz: `cd app && npm install && npm run 
 | `app/` | Next.js + TinaCMS-Anwendung (eigenes README) |
 | `docker-compose.yml` | Stack-Definition (Caddy + Tina + MongoDB) |
 | `Caddyfile` | Reverse-Proxy + Auto-TLS |
+| `humhub/` | optionales HumHub-Demo-Override (siehe oben) |
 | `.env.example` | dokumentierte Env-Variablen |
