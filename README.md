@@ -176,7 +176,7 @@ in `humhub/`. Ohne Aktivierung ändert sich am CMS-Stack nichts.
 ```bash
 # /opt/cms/.env
 COMPOSE_FILE=docker-compose.yml:humhub/compose.yml
-HUMHUB_DOMAIN=humhub.statthus-husum.de      # A-Record auf die VM nötig
+HUMHUB_DOMAIN=humhub.178-105-26-106.sslip.io   # oder eigene Domain mit A-Record
 HUMHUB_DB_PASS=…  HUMHUB_DB_ROOT_PASS=…  HUMHUB_ADMIN_PASS=…  HUMHUB_ADMIN_EMAIL=…
 ```
 
@@ -187,6 +187,22 @@ docker compose logs humhub-init     # „fertig: https://…“
 
 Login danach mit `admin` / `HUMHUB_ADMIN_PASS`. Mitglieder legt ein Admin unter
 *Administration → Benutzer* an (kein SMTP konfiguriert, daher keine Einladungs-Mails).
+
+**Ohne eigenen DNS-Record** (Demo): `HUMHUB_DOMAIN=humhub.178-105-26-106.sslip.io`.
+sslip.io löst den Namen auf die eingebettete IP auf; Caddy bekommt trotzdem ein
+Let's-Encrypt-Zertifikat. Nebenwirkung: DNS-Anfragen der Besucher:innen gehen an sslip.io.
+
+**Domain wechseln** (z. B. sslip.io → `humhub.statthus-husum.de`, A-Record vorher setzen):
+`HUMHUB_DOMAIN` in der `.env` ändern, dann
+
+```bash
+docker compose up -d caddy humhub
+docker compose exec humhub /app/yii installer/set-base-url https://<neue-domain>
+docker compose exec humhub /app/yii cache/flush-all
+```
+
+`humhub-init` läuft nach der Erstinstallation nicht mehr — die Base-URL muss daher
+von Hand nachgezogen werden.
 
 **Abschalten:** `COMPOSE_FILE`-Zeile entfernen, `docker compose up -d --remove-orphans`.
 Daten bleiben unter `/opt/cms-data/humhub/`. **Kein Backup** — Demo-Daten gelten als wegwerfbar.
